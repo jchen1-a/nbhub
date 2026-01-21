@@ -43,7 +43,114 @@
 <body>
     <!-- 导航栏 -->
     <nav class="navbar">
+        <div class="container"><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naraka Hub - Inicio</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 内联样式作为备选方案 */
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-main-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .nav-auth {
+            display: flex;
+            align-items: center;
+        }
+        
+        .btn-login {
+            background-color: #4a6fa5;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+        
+        /* 移除悬停效果 */
+        .btn-login:hover {
+            color: white !important;
+            background-color: #4a6fa5 !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
         <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-gamepad"></i>
+                <span>Naraka Hub</span>
+            </a>
+            
+            <div class="nav-main-links">
+                <a href="index.html" class="active">Inicio</a>
+                <a href="wiki.html">Wiki</a>
+                <a href="guides.html">Guías</a>
+                <a href="forum.html">Foro</a>
+            </div>
+            
+            <div class="nav-auth">
+                <a href="login.html" class="btn-login">Iniciar Sesión</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 其余代码保持不变 -->
+    <main class="container">
+        <section class="hero">
+            <h1>Portal de Naraka: Bladepoint</h1>
+            <p>Todo lo que necesitas en un solo lugar: wiki, guías y comunidad</p>
+            <div class="hero-buttons">
+                <a href="register.html" class="btn-primary">Registrarse Gratis</a>
+                <a href="wiki.html" class="btn-secondary">Explorar Wiki</a>
+            </div>
+        </section>
+
+        <section class="features">
+            <h2>Funcionalidades Principales</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <i class="fas fa-book"></i>
+                    <h3>Enciclopedia del Juego</h3>
+                    <p>Información completa de personajes, armas y mecánicas</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-users"></i>
+                    <h3>Foro de Discusión</h3>
+                    <p>Comparte estrategias y conecta con otros jugadores</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-graduation-cap"></i>
+                    <h3>Guías Detalladas</h3>
+                    <p>Aprende técnicas avanzadas y mejora tu juego</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer>
+        <div class="container">
+            <p>Proyecto desarrollado por Ming Liuzhang y Juncheng Chen</p>
+            <p>© 2024 Naraka Hub. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
             <a href="index.html" class="logo">
                 <i class="fas fa-gamepad"></i>
                 <span>Naraka Hub</span>

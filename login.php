@@ -1,3 +1,13 @@
+<?php
+// 在 login.php 和 register.php 的最开头添加
+require_once __DIR__ . '/config.php';
+
+// 如果用户已登录，重定向到首页
+if (isset($_SESSION['user_id'])) {
+    header('Location: index.php');
+    exit();
+}
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
