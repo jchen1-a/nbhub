@@ -1,299 +1,255 @@
 <?php
-// 在 login.php 和 register.php 的最开头添加
-require_once __DIR__ . '/config.php';
+// login.php - 用户登录
+require_once 'config.php';
 
-// 如果用户已登录，重定向到首页
-if (isset($_SESSION['user_id'])) {
+// 如果已登录，重定向到首页
+if (is_logged_in()) {
     header('Location: index.php');
     exit();
 }
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - Naraka Hub</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body {
-            background-color: #f5f5f5;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        main {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 40px 20px;
-        }
-        
-        .login-container {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-        }
-        
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .login-header h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-        
-        .login-header p {
-            color: #666;
-            font-size: 14px;
-        }
-        
-        .login-header .logo {
-            font-size: 40px;
-            color: #4a6fa5;
-            margin-bottom: 15px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-            font-weight: bold;
-        }
-        
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        
-        .form-control:focus {
-            outline: none;
-            border-color: #4a6fa5;
-            box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.2);
-        }
-        
-        .btn-login-submit {
-            width: 100%;
-            padding: 14px;
-            background-color: #4a6fa5;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .btn-login-submit:hover {
-            background-color: #3a5a85;
-        }
-        
-        .login-options {
-            margin-top: 20px;
-            text-align: center;
-        }
-        
-        .login-options a {
-            color: #4a6fa5;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        
-        .login-options a:hover {
-            text-decoration: underline;
-        }
-        
-        .divider {
-            display: flex;
-            align-items: center;
-            margin: 20px 0;
-        }
-        
-        .divider::before,
-        .divider::after {
-            content: "";
-            flex: 1;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .divider span {
-            padding: 0 15px;
-            color: #666;
-            font-size: 14px;
-        }
-        
-        .guest-option {
-            text-align: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        
-        .error-message {
-            background-color: #fee;
-            color: #c33;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .success-message {
-            background-color: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="container">
-            <a href="index.html" class="logo">
-                <i class="fas fa-gamepad"></i>
-                <span>Naraka Hub</span>
-            </a>
-            
-            <div class="nav-main-links">
-                <a href="index.html">Inicio</a>
-                <a href="wiki.html">Wiki</a>
-                <a href="guides.html">Guías</a>
-                <a href="forum.html">Foro</a>
-            </div>
-            
-            <div class="nav-auth">
-                <a href="register.html" class="btn-register">Registrarse</a>
-            </div>
-        </div>
-    </nav>
+$error = '';
+$email = '';
 
-    <main>
-        <div class="container">
-            <div class="login-container">
-                <div class="login-header">
-                    <div class="logo">
-                        <i class="fas fa-gamepad"></i>
-                    </div>
-                    <h1>Iniciar Sesión</h1>
-                    <p>Ingresa a tu cuenta de Naraka Hub</p>
-                </div>
-                
-                <div id="errorMessage" class="error-message"></div>
-                <div id="successMessage" class="success-message"></div>
-                
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="email">Correo Electrónico</label>
-                        <input type="email" id="email" class="form-control" placeholder="tu@email.com" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="password">Contraseña</label>
-                        <input type="password" id="password" class="form-control" placeholder="Tu contraseña" required>
-                    </div>
-                    
-                    <button type="submit" class="btn-login-submit">
-                        <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
-                    </button>
-                </form>
-                
-                <div class="login-options">
-                    <a href="forgot-password.html">¿Olvidaste tu contraseña?</a>
-                </div>
-                
-                <div class="divider">
-                    <span>O</span>
-                </div>
-                
-                <div class="guest-option">
-                    <p>¿No tienes una cuenta? <a href="register.html">Regístrate aquí</a></p>
-                    <p>¿Prefieres explorar sin cuenta? <a href="index.html">Continuar como invitado</a></p>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+// 处理登录表单提交
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = sanitize($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    
+    if (empty($email) || empty($password)) {
+        $error = 'Por favor, completa todos los campos.';
+    } else {
+        try {
+            $pdo = db_connect();
             
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const errorMessage = document.getElementById('errorMessage');
-            const successMessage = document.getElementById('successMessage');
+            // 查询用户
+            $stmt = $pdo->prepare("SELECT id, username, email, password_hash FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
             
-            // Reset messages
-            errorMessage.style.display = 'none';
-            successMessage.style.display = 'none';
-            
-            // Simple validation
-            if (!email || !password) {
-                errorMessage.textContent = 'Por favor, completa todos los campos.';
-                errorMessage.style.display = 'block';
-                return;
-            }
-            
-            // Simulate login process (in a real app, this would be an API call)
-            // For demo purposes, we'll use mock credentials
-            const mockUsers = [
-                { email: 'usuario@ejemplo.com', password: '123456', name: 'Usuario Demo' },
-                { email: 'jugador@naraka.com', password: 'naraka123', name: 'Jugador' }
-            ];
-            
-            const user = mockUsers.find(u => u.email === email && u.password === password);
-            
-            if (user) {
-                // Store user info in localStorage
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('userEmail', user.email);
-                localStorage.setItem('userName', user.name);
+            if ($user && password_verify($password, $user['password_hash'])) {
+                // 登录成功，设置会话
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['user_email'] = $user['email'];
                 
-                successMessage.textContent = '¡Inicio de sesión exitoso! Redirigiendo...';
-                successMessage.style.display = 'block';
+                // 设置最后登录时间
+                $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")
+                    ->execute([$user['id']]);
                 
-                // Redirect to home page after 1 second
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 1000);
+                // 重定向
+                $redirect = $_GET['redirect'] ?? 'index.php';
+                header("Location: $redirect");
+                exit();
             } else {
-                errorMessage.textContent = 'Correo electrónico o contraseña incorrectos.';
-                errorMessage.style.display = 'block';
+                $error = 'Correo electrónico o contraseña incorrectos.';
             }
-        });
-        
-        // Check if user is already logged in
-        if (localStorage.getItem('isLoggedIn') === 'true') {
-            window.location.href = 'index.html';
+        } catch (Exception $e) {
+            $error = 'Error del sistema. Por favor, intenta más tarde.';
         }
-    </script>
-</body>
-</html>
+    }
+}
+?>
+<?php include 'includes/header.php'; ?>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</h1>
+            <p>Ingresa a tu cuenta de Naraka Hub</p>
+        </div>
+        
+        <?php if ($error): ?>
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+        </div>
+        <?php endif; ?>
+        
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="email"><i class="fas fa-envelope"></i> Correo Electrónico</label>
+                <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" 
+                       required placeholder="tu@email.com" autocomplete="email">
+            </div>
+            
+            <div class="form-group">
+                <label for="password"><i class="fas fa-lock"></i> Contraseña</label>
+                <input type="password" id="password" name="password" 
+                       required placeholder="Tu contraseña" autocomplete="current-password">
+                <div class="password-toggle">
+                    <input type="checkbox" id="showPassword"> <label for="showPassword">Mostrar contraseña</label>
+                </div>
+            </div>
+            
+            <div class="form-options">
+                <label class="checkbox">
+                    <input type="checkbox" name="remember"> Recordarme
+                </label>
+                <a href="forgot-password.php" class="forgot-link">¿Olvidaste tu contraseña?</a>
+            </div>
+            
+            <button type="submit" class="btn-auth btn-primary">
+                <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+            </button>
+        </form>
+        
+        <div class="auth-divider">
+            <span>¿No tienes una cuenta?</span>
+        </div>
+        
+        <div class="auth-footer">
+            <a href="register.php" class="btn-auth btn-secondary">
+                <i class="fas fa-user-plus"></i> Crear Cuenta Nueva
+            </a>
+            <a href="index.php" class="btn-auth btn-outline">
+                <i class="fas fa-home"></i> Volver al Inicio
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.auth-container {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.auth-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    padding: 40px;
+    width: 100%;
+    max-width: 500px;
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-header h1 {
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.auth-header p {
+    color: #666;
+}
+
+.auth-form {
+    margin: 30px 0;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.password-toggle {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 25px 0;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.forgot-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
+}
+
+.btn-auth {
+    width: 100%;
+    padding: 15px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px 0;
+    transition: all 0.3s;
+}
+
+.auth-divider {
+    text-align: center;
+    margin: 30px 0;
+    position: relative;
+}
+
+.auth-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #ddd;
+}
+
+.auth-divider span {
+    background: white;
+    padding: 0 20px;
+    color: #666;
+    position: relative;
+}
+
+.auth-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+</style>
+
+<script>
+// 显示/隐藏密码
+document.getElementById('showPassword')?.addEventListener('change', function(e) {
+    const passwordInput = document.getElementById('password');
+    passwordInput.type = this.checked ? 'text' : 'password';
+});
+</script>
+
+<?php include 'includes/footer.php'; ?>

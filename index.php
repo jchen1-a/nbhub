@@ -1,215 +1,98 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Naraka Hub - Inicio</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* 内联样式作为备选方案 */
-        .navbar .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+<?php
+// index.php - 动态首页
+require_once 'config.php';
+?>
+<?php include 'includes/header.php'; ?>
+
+<div class="hero">
+    <div class="hero-content">
+        <h1>Portal de Naraka: Bladepoint</h1>
+        <p class="hero-subtitle">Todo lo que necesitas en un solo lugar: wiki, guías y comunidad activa</p>
         
-        .nav-main-links {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-        
-        .nav-auth {
-            display: flex;
-            align-items: center;
-        }
-        
-        .btn-login {
-            background-color: #4a6fa5;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 4px;
-            text-decoration: none;
-        }
-        
-        /* 移除悬停效果 */
-        .btn-login:hover {
-            color: white !important;
-            background-color: #4a6fa5 !important;
-        }
-    </style>
-</head>
-<body>
-    <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="container"><!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Naraka Hub - Inicio</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* 内联样式作为备选方案 */
-        .navbar .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .nav-main-links {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-        
-        .nav-auth {
-            display: flex;
-            align-items: center;
-        }
-        
-        .btn-login {
-            background-color: #4a6fa5;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 4px;
-            text-decoration: none;
-        }
-        
-        /* 移除悬停效果 */
-        .btn-login:hover {
-            color: white !important;
-            background-color: #4a6fa5 !important;
-        }
-    </style>
-</head>
-<body>
-    <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="container">
-            <a href="index.html" class="logo">
-                <i class="fas fa-gamepad"></i>
-                <span>Naraka Hub</span>
+        <div class="hero-buttons">
+            <?php if (!is_logged_in()): ?>
+                <a href="register.php" class="btn-primary btn-large">
+                    <i class="fas fa-user-plus"></i> Únete Gratis
+                </a>
+            <?php endif; ?>
+            <a href="wiki.php" class="btn-secondary">
+                <i class="fas fa-book-open"></i> Explorar Wiki
             </a>
-            
-            <div class="nav-main-links">
-                <a href="index.html" class="active">Inicio</a>
-                <a href="wiki.html">Wiki</a>
-                <a href="guides.html">Guías</a>
-                <a href="forum.html">Foro</a>
-            </div>
-            
-            <div class="nav-auth">
-                <a href="login.html" class="btn-login">Iniciar Sesión</a>
-            </div>
-        </div>
-    </nav>
-
-    <!-- 其余代码保持不变 -->
-    <main class="container">
-        <section class="hero">
-            <h1>Portal de Naraka: Bladepoint</h1>
-            <p>Todo lo que necesitas en un solo lugar: wiki, guías y comunidad</p>
-            <div class="hero-buttons">
-                <a href="register.html" class="btn-primary">Registrarse Gratis</a>
-                <a href="wiki.html" class="btn-secondary">Explorar Wiki</a>
-            </div>
-        </section>
-
-        <section class="features">
-            <h2>Funcionalidades Principales</h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <i class="fas fa-book"></i>
-                    <h3>Enciclopedia del Juego</h3>
-                    <p>Información completa de personajes, armas y mecánicas</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fas fa-users"></i>
-                    <h3>Foro de Discusión</h3>
-                    <p>Comparte estrategias y conecta con otros jugadores</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fas fa-graduation-cap"></i>
-                    <h3>Guías Detalladas</h3>
-                    <p>Aprende técnicas avanzadas y mejora tu juego</p>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- 页脚 -->
-    <footer>
-        <div class="container">
-            <p>Proyecto desarrollado por Ming Liuzhang y Juncheng Chen</p>
-            <p>© 2024 Naraka Hub. Todos los derechos reservados.</p>
-        </div>
-    </footer>
-
-    <script src="js/main.js"></script>
-</body>
-</html>
-            <a href="index.html" class="logo">
-                <i class="fas fa-gamepad"></i>
-                <span>Naraka Hub</span>
+            <a href="test_db.php" class="btn-outline">
+                <i class="fas fa-server"></i> Ver Estado
             </a>
-            
-            <div class="nav-main-links">
-                <a href="index.html" class="active">Inicio</a>
-                <a href="wiki.html">Wiki</a>
-                <a href="guides.html">Guías</a>
-                <a href="forum.html">Foro</a>
-            </div>
-            
-            <div class="nav-auth">
-                <a href="login.html" class="btn-login">Iniciar Sesión</a>
-            </div>
         </div>
-    </nav>
-
-    <!-- 其余代码保持不变 -->
-    <main class="container">
-        <section class="hero">
-            <h1>Portal de Naraka: Bladepoint</h1>
-            <p>Todo lo que necesitas en un solo lugar: wiki, guías y comunidad</p>
-            <div class="hero-buttons">
-                <a href="register.html" class="btn-primary">Registrarse Gratis</a>
-                <a href="wiki.html" class="btn-secondary">Explorar Wiki</a>
+        
+        <?php if (is_logged_in()): ?>
+            <div class="welcome-back">
+                <h3><i class="fas fa-check-circle"></i> ¡Bienvenido de nuevo, <?php echo current_user()['name']; ?>!</h3>
+                <p>Tu última actividad fue hace 2 horas. <a href="dashboard.php">Ver tu panel</a></p>
             </div>
-        </section>
+        <?php endif; ?>
+    </div>
+</div>
 
-        <section class="features">
-            <h2>Funcionalidades Principales</h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <i class="fas fa-book"></i>
-                    <h3>Enciclopedia del Juego</h3>
-                    <p>Información completa de personajes, armas y mecánicas</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fas fa-users"></i>
-                    <h3>Foro de Discusión</h3>
-                    <p>Comparte estrategias y conecta con otros jugadores</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fas fa-graduation-cap"></i>
-                    <h3>Guías Detalladas</h3>
-                    <p>Aprende técnicas avanzadas y mejora tu juego</p>
-                </div>
+<section class="features-section">
+    <h2 class="section-title">¿Qué ofrece Naraka Hub?</h2>
+    
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-database"></i>
             </div>
-        </section>
-    </main>
-
-    <!-- 页脚 -->
-    <footer>
-        <div class="container">
-            <p>Proyecto desarrollado por Ming Liuzhang y Juncheng Chen</p>
-            <p>© 2024 Naraka Hub. Todos los derechos reservados.</p>
+            <h3>Wiki Actualizada</h3>
+            <p>Información completa y verificada sobre personajes, armas, habilidades y mecánicas del juego.</p>
+            <a href="wiki.php" class="feature-link">Explorar <i class="fas fa-arrow-right"></i></a>
         </div>
-    </footer>
+        
+        <div class="feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <h3>Foro Activo</h3>
+            <p>Comparte estrategias, haz preguntas y conecta con jugadores de todo el mundo.</p>
+            <a href="forum.php" class="feature-link">Participar <i class="fas fa-arrow-right"></i></a>
+        </div>
+        
+        <div class="feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h3>Guías Expertas</h3>
+            <p>Aprende técnicas avanzadas, builds óptimos y secretos del juego de jugadores experimentados.</p>
+            <a href="guides.php" class="feature-link">Aprender <i class="fas fa-arrow-right"></i></a>
+        </div>
+    </div>
+</section>
 
-    <script src="js/main.js"></script>
-</body>
-</html>
+<section class="stats-section">
+    <div class="stats-container">
+        <?php
+        try {
+            $pdo = db_connect();
+            $stats = $pdo->query("
+                SELECT 
+                    (SELECT COUNT(*) FROM users) as users,
+                    (SELECT COUNT(*) FROM articles) as guides,
+                    (SELECT COUNT(*) FROM forum_posts) as posts
+            ")->fetch();
+        } catch (Exception $e) {
+            $stats = ['users' => '?', 'guides' => '?', 'posts' => '?'];
+        }
+        ?>
+        <div class="stat-item">
+            <h3><?php echo $stats['users']; ?></h3>
+            <p>Jugadores Registrados</p>
+        </div>
+        <div class="stat-item">
+            <h3><?php echo $stats['guides']; ?></h3>
+            <p>Guías Publicadas</p>
+        </div>
+        <div class="stat-item">
+            <h3><?php echo $stats['posts']; ?></h3>
+            <p>Discusiones Activas</p>
+        </div>
+    </div>
+</section>
+
+<?php include 'includes/footer.php'; ?>
