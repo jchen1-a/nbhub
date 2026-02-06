@@ -12,7 +12,7 @@ ini_set('display_errors', 1);
 // 使用你的实际信息（不要修改左侧，只确认右侧值正确）
 define('DB_HOST', 'sql211.infinityfree.com');  // 你的主机
 define('DB_USER', 'if0_41075202');             // 你的用户名
-define('DB_PASSWORD', '你的vPanel密码');       // 你登录InfinityFree的密码
+define('DB_PASSWORD', 'NBhub10086');       // 你登录InfinityFree的密码
 define('DB_NAME', 'if0_41075202_Nbbase');      // 你的数据库名
 define('DB_PORT', '3306');
 
