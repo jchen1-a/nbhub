@@ -147,7 +147,17 @@ try {
 .author-info { display: flex; align-items: center; gap: 15px; }
 .avatar-icon { font-size: 2.5em; color: #ddd; }
 .article-divider { border: 0; border-top: 1px solid #eee; margin: 30px 0; }
-.article-content { font-size: 1.1em; line-height: 1.8; color: #333; min-height: 200px; }
+.article-content {
+    font-size: 1.1em;
+    line-height: 1.8;
+    color: #333;
+    min-height: 200px;
+    
+    /* 强制长单词换行，防止炸布局 */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word; 
+}
 .badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; text-transform: uppercase; margin-right: 10px; }
 .category-badge { background: #e9ecef; color: #555; }
 .difficulty-badge.beginner { background: #28a745; color: white; }
