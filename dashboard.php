@@ -1,5 +1,5 @@
 <?php
-// dashboard.php - 修复版 (添加常驻创建按钮)
+// dashboard.php - 完整版 (含删除功能)
 require_once 'config.php';
 require_login();
 
@@ -25,7 +25,7 @@ try {
         FROM articles 
         WHERE user_id = ? 
         ORDER BY created_at DESC 
-        LIMIT 5
+        LIMIT 10
     ");
     $recentArticles->execute([$user_id]);
     $articles = $recentArticles->fetchAll();
@@ -85,7 +85,7 @@ try {
                     <?php if (!empty($articles)): ?>
                         <div class="article-list">
                         <?php foreach ($articles as $art): ?>
-                        <div class="article-item" style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid #eee;">
+                        <div class="article-item" style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee;">
                             <div class="art-info">
                                 <h4 style="margin:0 0 5px 0;">
                                     <a href="article.php?id=<?php echo $art['id']; ?>" style="color:#333; text-decoration:none; font-weight:bold;">
@@ -97,11 +97,19 @@ try {
                                     <?php if(!$art['is_published']) echo ' <span style="color:orange;">(Borrador)</span>'; ?>
                                 </small>
                             </div>
-                            <div class="article-meta" style="text-align:right;">
-                                <span style="display:block; font-weight:bold; color:#00adb5;">
+                            <div class="article-actions" style="display:flex; gap:10px; align-items:center;">
+                                <span style="font-weight:bold; color:#00adb5; margin-right:5px;">
                                     <i class="fas fa-eye"></i> <?php echo $art['views']; ?>
                                 </span>
-                                <a href="article.php?id=<?php echo $art['id']; ?>" style="font-size:0.9em; color:#666;">Ver</a>
+                                <a href="article.php?id=<?php echo $art['id']; ?>" class="btn-sm btn-outline" title="Ver">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="delete-guide.php?id=<?php echo $art['id']; ?>" 
+                                   class="btn-sm btn-danger" 
+                                   title="Eliminar"
+                                   onclick="return confirm('¿Estás seguro de que deseas eliminar esta guía? Esta acción no se puede deshacer.');">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
                             </div>
                         </div>
                         <?php endforeach; ?>
@@ -118,4 +126,22 @@ try {
         </main>
     </div>
 </div>
+
+<style>
+/* 简单的内联样式补充 */
+.btn-sm {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    text-decoration: none;
+    border: 1px solid #ddd;
+    display: inline-block;
+}
+.btn-outline { background: white; color: #333; }
+.btn-outline:hover { background: #f0f0f0; }
+
+.btn-danger { background: #fff; color: #dc3545; border-color: #dc3545; }
+.btn-danger:hover { background: #dc3545; color: white; }
+</style>
+
 <?php include 'includes/footer.php'; ?>

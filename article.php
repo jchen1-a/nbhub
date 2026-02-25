@@ -1,5 +1,5 @@
 <?php
-// article.php - 修复浏览量 Bug 版
+// article.php - 完整版 (含删除功能与样式修复)
 require_once 'config.php';
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -8,7 +8,7 @@ $user_id = is_logged_in() ? $_SESSION['user_id'] : 0;
 try {
     $pdo = db_connect();
     
-    // 1. 先查询文章信息 (而不是先增加浏览量)
+    // 1. 先查询文章信息
     $stmt = $pdo->prepare("
         SELECT a.*, u.username, u.country 
         FROM articles a
@@ -24,16 +24,15 @@ try {
         die("La guía no existe.");
     }
 
-    // 3. 智能浏览量控制逻辑
+    // 3. 智能浏览量控制
     $should_count_view = true;
     
-    // 规则 A: 如果是作者本人，不增加浏览量
+    // 如果是作者本人，不增加浏览量
     if ($user_id == $article['user_id']) {
         $should_count_view = false;
     }
     
-    // 规则 B: 如果在这个 Session 里已经看过这篇，不增加浏览量 (防止刷新刷数据)
-    // 我们用 Session 记录看过的文章 ID
+    // 如果 Session 里记录已读，不增加浏览量
     if (!isset($_SESSION['viewed_articles'])) {
         $_SESSION['viewed_articles'] = [];
     }
@@ -42,19 +41,14 @@ try {
         $should_count_view = false;
     }
     
-    // 4. 如果通过检查，执行增加浏览量
     if ($should_count_view) {
         $updateViews = $pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?");
         $updateViews->execute([$id]);
-        
-        // 更新页面上显示的数字 (因为刚才查询的是旧数据)
         $article['views']++;
-        
-        // 记录到 Session，标记为已读
         $_SESSION['viewed_articles'][] = $id;
     }
     
-    // 5. 获取同类推荐
+    // 4. 获取推荐
     $related = [];
     $relStmt = $pdo->prepare("
         SELECT id, title, views 
@@ -119,6 +113,17 @@ try {
             
             <div class="article-footer">
                 <a href="guides.php" class="btn-outline"><i class="fas fa-arrow-left"></i> Volver</a>
+                
+                <?php if (is_logged_in() && $_SESSION['user_id'] == $article['user_id']): ?>
+                    <div class="author-actions">
+                        <a href="delete-guide.php?id=<?php echo $article['id']; ?>" 
+                           class="btn-danger"
+                           style="padding: 10px 20px; border-radius: 6px; text-decoration: none; border: 1px solid #dc3545; display:inline-flex; align-items:center; gap:5px;"
+                           onclick="return confirm('¿Estás seguro de que deseas eliminar esta guía?');">
+                            <i class="fas fa-trash-alt"></i> Eliminar
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         </article>
         
@@ -140,24 +145,26 @@ try {
 </div>
 
 <style>
-/* 复用之前的样式，保持一致性 */
+/* 复用样式 */
 .article-container { background: white; border-radius: 15px; padding: 40px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); max-width: 900px; margin: 0 auto; }
-.article-title { font-size: 2.5em; color: #1a1a2e; margin-bottom: 25px; }
+.article-title { font-size: 2.5em; color: #1a1a2e; margin-bottom: 25px; line-height: 1.2; }
 .author-bar { display: flex; justify-content: space-between; align-items: center; color: #666; }
 .author-info { display: flex; align-items: center; gap: 15px; }
 .avatar-icon { font-size: 2.5em; color: #ddd; }
 .article-divider { border: 0; border-top: 1px solid #eee; margin: 30px 0; }
-.article-content {
-    font-size: 1.1em;
-    line-height: 1.8;
-    color: #333;
+
+/* 修复长文本炸版问题的关键 CSS */
+.article-content { 
+    font-size: 1.1em; 
+    line-height: 1.8; 
+    color: #333; 
     min-height: 200px;
-    
-    /* 强制长单词换行，防止炸布局 */
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-    word-break: break-word; 
+    overflow-wrap: break-word; /* 关键 */
+    word-wrap: break-word;     /* 兼容旧版 */
+    word-break: break-word;    /* 暴力换行 */
 }
+
+.article-footer { margin-top: 50px; display: flex; justify-content: space-between; align-items: center; }
 .badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; text-transform: uppercase; margin-right: 10px; }
 .category-badge { background: #e9ecef; color: #555; }
 .difficulty-badge.beginner { background: #28a745; color: white; }
@@ -167,6 +174,12 @@ try {
 .related-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
 .related-card { background: white; padding: 20px; border-radius: 10px; text-decoration: none; color: #333; box-shadow: 0 3px 10px rgba(0,0,0,0.05); transition: transform 0.2s; display: flex; justify-content: space-between; }
 .related-card:hover { transform: translateY(-3px); }
+
+@media (max-width: 768px) {
+    .author-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .article-footer { flex-direction: column; gap: 20px; align-items: stretch; }
+    .author-actions { text-align: center; }
+}
 </style>
 
 <?php include 'includes/footer.php'; ?>
