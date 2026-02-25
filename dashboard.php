@@ -1,5 +1,5 @@
 <?php
-// dashboard.php - 修正版
+// dashboard.php - 修复版 (添加常驻创建按钮)
 require_once 'config.php';
 require_login();
 
@@ -9,7 +9,7 @@ $user_id = $user['id'];
 try {
     $pdo = db_connect();
     
-    // 修正：将预处理语句赋值给 $stmt，并确保表名使用 articles
+    // 统计数据
     $stmt = $pdo->prepare("
         SELECT 
             (SELECT COUNT(*) FROM articles WHERE user_id = ?) as articles_count,
@@ -21,7 +21,7 @@ try {
     
     // 获取最近文章
     $recentArticles = $pdo->prepare("
-        SELECT id, title, created_at, views 
+        SELECT id, title, created_at, views, is_published
         FROM articles 
         WHERE user_id = ? 
         ORDER BY created_at DESC 
@@ -31,7 +31,7 @@ try {
     $articles = $recentArticles->fetchAll();
     
 } catch (Exception $e) {
-    $error = "Error al cargar datos: " . $e->getMessage();
+    $error = "Error: " . $e->getMessage();
 }
 ?>
 <?php include 'includes/header.php'; ?>
@@ -39,7 +39,7 @@ try {
 <div class="dashboard-container">
     <div class="dashboard-header">
         <h1><i class="fas fa-tachometer-alt"></i> Panel de Usuario</h1>
-        <p class="user-greeting">Bienvenido, <strong><?php echo htmlspecialchars($user['name']); ?></strong></p>
+        <p class="user-greeting">Hola, <strong><?php echo htmlspecialchars($user['name']); ?></strong></p>
     </div>
     
     <?php if (isset($error)): ?>
@@ -53,7 +53,7 @@ try {
                 <div class="profile-info">
                     <h3><?php echo htmlspecialchars($user['name']); ?></h3>
                     <p><i class="fas fa-envelope"></i> <?php echo htmlspecialchars($user['email']); ?></p>
-                    <p><i class="fas fa-calendar"></i> Miembro desde: <?php echo isset($stats['joined_date']) ? date('d/m/Y', strtotime($stats['joined_date'])) : '---'; ?></p>
+                    <p class="join-date"><i class="far fa-clock"></i> Desde: <?php echo date('d/m/Y', strtotime($stats['joined_date'])); ?></p>
                 </div>
                 <div class="profile-stats">
                     <div class="stat-item">
@@ -66,6 +66,9 @@ try {
                     </div>
                 </div>
                 <div class="profile-actions">
+                    <a href="new-guide.php" class="btn-primary" style="width:100%; margin-bottom:10px;">
+                        <i class="fas fa-plus"></i> Nueva Guía
+                    </a>
                     <a href="profile.php" class="btn-profile">Ver mi Perfil</a>
                     <a href="logout.php" class="btn-profile btn-danger">Cerrar Sesión</a>
                 </div>
@@ -74,17 +77,41 @@ try {
         
         <main class="dashboard-content">
             <div class="card">
-                <div class="card-header"><h3><i class="fas fa-file-alt"></i> Mis Guías Recientes</h3></div>
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3><i class="fas fa-file-alt"></i> Mis Guías Recientes</h3>
+                    <a href="new-guide.php" class="btn-sm btn-primary"><i class="fas fa-plus"></i> Crear</a>
+                </div>
                 <div class="card-body">
                     <?php if (!empty($articles)): ?>
+                        <div class="article-list">
                         <?php foreach ($articles as $art): ?>
-                        <div class="article-item">
-                            <h4><a href="article.php?id=<?php echo $art['id']; ?>"><?php echo htmlspecialchars($art['title']); ?></a></h4>
-                            <div class="article-meta"><span>Vistas: <?php echo $art['views']; ?></span></div>
+                        <div class="article-item" style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid #eee;">
+                            <div class="art-info">
+                                <h4 style="margin:0 0 5px 0;">
+                                    <a href="article.php?id=<?php echo $art['id']; ?>" style="color:#333; text-decoration:none; font-weight:bold;">
+                                        <?php echo htmlspecialchars($art['title']); ?>
+                                    </a>
+                                </h4>
+                                <small style="color:#888;">
+                                    <?php echo date('d/m/Y', strtotime($art['created_at'])); ?> 
+                                    <?php if(!$art['is_published']) echo ' <span style="color:orange;">(Borrador)</span>'; ?>
+                                </small>
+                            </div>
+                            <div class="article-meta" style="text-align:right;">
+                                <span style="display:block; font-weight:bold; color:#00adb5;">
+                                    <i class="fas fa-eye"></i> <?php echo $art['views']; ?>
+                                </span>
+                                <a href="article.php?id=<?php echo $art['id']; ?>" style="font-size:0.9em; color:#666;">Ver</a>
+                            </div>
                         </div>
                         <?php endforeach; ?>
+                        </div>
                     <?php else: ?>
-                        <p>No tienes guías aún. <a href="new-guide.php">Crea una aquí</a></p>
+                        <div style="text-align:center; padding:40px; color:#666;">
+                            <i class="fas fa-folder-open" style="font-size:3em; margin-bottom:15px; display:block; color:#ddd;"></i>
+                            <p>No tienes guías aún.</p>
+                            <a href="new-guide.php" class="btn-primary">¡Crea tu primera guía!</a>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>

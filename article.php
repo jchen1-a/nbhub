@@ -1,19 +1,14 @@
 <?php
-// article.php - 显示单篇攻略详情
+// article.php - 修复浏览量 Bug 版
 require_once 'config.php';
 
-// 获取攻略 ID
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$user_id = is_logged_in() ? $_SESSION['user_id'] : 0;
 
 try {
     $pdo = db_connect();
     
-    // 1. 增加浏览量 (每次访问 +1)
-    $updateViews = $pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?");
-    $updateViews->execute([$id]);
-    
-    // 2. 查询攻略详情
-    // 关联 users 表获取作者名
+    // 1. 先查询文章信息 (而不是先增加浏览量)
     $stmt = $pdo->prepare("
         SELECT a.*, u.username, u.country 
         FROM articles a
@@ -23,42 +18,66 @@ try {
     $stmt->execute([$id]);
     $article = $stmt->fetch();
     
-    // 3. 检查是否存在或已发布
+    // 2. 检查文章是否存在
     if (!$article) {
-        // 如果找不到文章
         header("HTTP/1.0 404 Not Found");
-        $error = "La guía no existe o ha sido eliminada.";
-    } elseif (!$article['is_published'] && (!is_logged_in() || $_SESSION['user_id'] != $article['user_id'])) {
-        // 如果未发布且不是作者本人查看
-        $error = "Esta guía está en revisión o borrador.";
-    }
-    
-    // 4. 获取同类推荐 (可选功能)
-    $related = [];
-    if ($article) {
-        $relStmt = $pdo->prepare("
-            SELECT id, title, views 
-            FROM articles 
-            WHERE category = ? AND id != ? AND is_published = 1
-            ORDER BY views DESC 
-            LIMIT 3
-        ");
-        $relStmt->execute([$article['category'], $id]);
-        $related = $relStmt->fetchAll();
+        die("La guía no existe.");
     }
 
+    // 3. 智能浏览量控制逻辑
+    $should_count_view = true;
+    
+    // 规则 A: 如果是作者本人，不增加浏览量
+    if ($user_id == $article['user_id']) {
+        $should_count_view = false;
+    }
+    
+    // 规则 B: 如果在这个 Session 里已经看过这篇，不增加浏览量 (防止刷新刷数据)
+    // 我们用 Session 记录看过的文章 ID
+    if (!isset($_SESSION['viewed_articles'])) {
+        $_SESSION['viewed_articles'] = [];
+    }
+    
+    if (in_array($id, $_SESSION['viewed_articles'])) {
+        $should_count_view = false;
+    }
+    
+    // 4. 如果通过检查，执行增加浏览量
+    if ($should_count_view) {
+        $updateViews = $pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?");
+        $updateViews->execute([$id]);
+        
+        // 更新页面上显示的数字 (因为刚才查询的是旧数据)
+        $article['views']++;
+        
+        // 记录到 Session，标记为已读
+        $_SESSION['viewed_articles'][] = $id;
+    }
+    
+    // 5. 获取同类推荐
+    $related = [];
+    $relStmt = $pdo->prepare("
+        SELECT id, title, views 
+        FROM articles 
+        WHERE category = ? AND id != ? AND is_published = 1
+        ORDER BY views DESC 
+        LIMIT 3
+    ");
+    $relStmt->execute([$article['category'], $id]);
+    $related = $relStmt->fetchAll();
+
 } catch (Exception $e) {
-    $error = "Error de sistema: " . $e->getMessage();
+    $error = "Error: " . $e->getMessage();
 }
 ?>
 <?php include 'includes/header.php'; ?>
 
 <div class="container" style="padding: 40px 20px;">
     <?php if (isset($error)): ?>
-        <div class="alert alert-error" style="text-align:center; padding: 40px;">
-            <i class="fas fa-exclamation-triangle" style="font-size: 3em; margin-bottom: 20px;"></i>
-            <h2><?php echo $error; ?></h2>
-            <p><a href="guides.php" class="btn-primary">Volver a Guías</a></p>
+        <div class="alert alert-error">
+            <h2>Error</h2>
+            <p><?php echo $error; ?></p>
+            <a href="guides.php" class="btn-primary">Volver</a>
         </div>
     <?php else: ?>
 
@@ -81,8 +100,8 @@ try {
                             <span class="author-name">
                                 Por <a href="profile.php?user=<?php echo $article['user_id']; ?>"><?php echo htmlspecialchars($article['username']); ?></a>
                             </span>
-                            <?php if ($article['country']): ?>
-                                <span class="flag-icon"><?php echo get_flag($article['country']); ?></span>
+                            <?php if($user_id == $article['user_id']): ?>
+                                <span style="font-size:0.8em; color:#00adb5; margin-left:5px;">(Eres el autor)</span>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -95,17 +114,11 @@ try {
             <hr class="article-divider">
 
             <div class="article-content">
-                <?php 
-                // 注意：这里使用了 nl2br 来保留换行，如果你之后用了富文本编辑器，可以直接输出
-                echo nl2br(htmlspecialchars($article['content'])); 
-                ?>
+                <?php echo nl2br(htmlspecialchars($article['content'])); ?>
             </div>
             
             <div class="article-footer">
                 <a href="guides.php" class="btn-outline"><i class="fas fa-arrow-left"></i> Volver</a>
-                <?php if (is_logged_in() && $_SESSION['user_id'] == $article['user_id']): ?>
-                    <a href="#" class="btn-secondary"><i class="fas fa-edit"></i> Editar Guía</a>
-                <?php endif; ?>
             </div>
         </article>
         
@@ -127,124 +140,23 @@ try {
 </div>
 
 <style>
-/* 文章页专用样式 */
-.article-container {
-    background: white;
-    border-radius: 15px;
-    padding: 40px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-.article-meta-top {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    align-items: center;
-}
-
-.badge {
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 0.85em;
-    font-weight: bold;
-    text-transform: uppercase;
-}
-
-.category-badge { background: #e9ecef; color: #555; }
-
-.difficulty-badge.beginner { background: var(--success); color: white; }
-.difficulty-badge.intermediate { background: var(--warning); color: #333; }
-.difficulty-badge.advanced { background: var(--danger); color: white; }
-
-.article-title {
-    font-size: 2.5em;
-    color: var(--primary);
-    margin-bottom: 25px;
-    line-height: 1.2;
-}
-
-.author-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #666;
-}
-
-.author-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
+/* 复用之前的样式，保持一致性 */
+.article-container { background: white; border-radius: 15px; padding: 40px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); max-width: 900px; margin: 0 auto; }
+.article-title { font-size: 2.5em; color: #1a1a2e; margin-bottom: 25px; }
+.author-bar { display: flex; justify-content: space-between; align-items: center; color: #666; }
+.author-info { display: flex; align-items: center; gap: 15px; }
 .avatar-icon { font-size: 2.5em; color: #ddd; }
-.author-name a { color: var(--primary); text-decoration: none; font-weight: bold; }
-.author-name a:hover { color: var(--accent); }
-
-.article-divider {
-    border: 0;
-    border-top: 1px solid #eee;
-    margin: 30px 0;
-}
-
-.article-content {
-    font-size: 1.1em;
-    line-height: 1.8;
-    color: #333;
-    min-height: 200px;
-}
-
-.article-footer {
-    margin-top: 50px;
-    display: flex;
-    justify-content: space-between;
-}
-
-.related-section {
-    max-width: 900px;
-    margin: 40px auto 0;
-}
-
-.related-section h3 { margin-bottom: 20px; color: var(--primary); }
-
-.related-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-}
-
-.related-card {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    text-decoration: none;
-    color: #333;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
-    transition: transform 0.2s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.related-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-.related-card h4 { margin: 0; font-size: 1em; }
-.related-card span { color: #999; font-size: 0.9em; }
-
-@media (max-width: 768px) {
-    .article-container { padding: 20px; }
-    .article-title { font-size: 1.8em; }
-    .author-bar { flex-direction: column; align-items: flex-start; gap: 15px; }
-}
+.article-divider { border: 0; border-top: 1px solid #eee; margin: 30px 0; }
+.article-content { font-size: 1.1em; line-height: 1.8; color: #333; min-height: 200px; }
+.badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; text-transform: uppercase; margin-right: 10px; }
+.category-badge { background: #e9ecef; color: #555; }
+.difficulty-badge.beginner { background: #28a745; color: white; }
+.difficulty-badge.intermediate { background: #ffc107; color: #333; }
+.difficulty-badge.advanced { background: #dc3545; color: white; }
+.related-section { max-width: 900px; margin: 40px auto 0; }
+.related-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+.related-card { background: white; padding: 20px; border-radius: 10px; text-decoration: none; color: #333; box-shadow: 0 3px 10px rgba(0,0,0,0.05); transition: transform 0.2s; display: flex; justify-content: space-between; }
+.related-card:hover { transform: translateY(-3px); }
 </style>
 
-<?php 
-// 辅助函数：获取国旗 (如果没有在其他地方定义)
-if (!function_exists('get_flag')) {
-    function get_flag($code) {
-        $flags = ['ES'=>'🇪🇸', 'MX'=>'🇲🇽', 'AR'=>'🇦🇷', 'US'=>'🇺🇸', 'CN'=>'🇨🇳'];
-        return $flags[$code] ?? '🌐';
-    }
-}
-?>
 <?php include 'includes/footer.php'; ?>
