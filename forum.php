@@ -15,7 +15,7 @@ try {
     $params = [];
     
     if (!empty($search)) {
-        $where[] = "(title LIKE ? OR content ILIKE ?)";
+        $where[] = "(title LIKE ? OR content LIKE ?)";
         $search_term = "%$search%";
         $params[] = $search_term;
         $params[] = $search_term;
