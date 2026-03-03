@@ -1,5 +1,5 @@
 <?php
-// edit-profile.php - 编辑个人资料与头像上传
+// edit-profile.php - 编辑个人资料与头像上传 (已修复名称同步 Bug)
 require_once 'config.php';
 require_login(); // 必须登录
 
@@ -81,10 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             $update->execute([$username, $country, $bio, $gender, $avatar_path, $user_id]);
             
-            // 【修复Bug】强制刷新所有的 Session 缓存字段，确保全站名字统一
+            // 【核心修复】：强制更新所有可能的 Session 缓存变量，让右上角下拉菜单瞬间同步
             $_SESSION['user_name'] = $username;
             $_SESSION['username'] = $username;
-            $_SESSION['name'] = $username; 
+            $_SESSION['name'] = $username;
             
             $_SESSION['flash_message'] = "¡Perfil actualizado con éxito!";
             header("Location: profile.php");
@@ -188,7 +188,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-// 显示选择的文件名
 function updateFileName(input) {
     var fileName = input.files[0] ? input.files[0].name : '';
     document.getElementById('file-name').textContent = fileName ? 'Archivo seleccionado: ' + fileName : '';

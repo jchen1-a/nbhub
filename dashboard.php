@@ -1,5 +1,5 @@
 <?php
-// dashboard.php - 完整版 (含删除功能)
+// dashboard.php - 完整版 (已修复名字显示 Bug)
 require_once 'config.php';
 require_login();
 
@@ -33,13 +33,16 @@ try {
 } catch (Exception $e) {
     $error = "Error: " . $e->getMessage();
 }
+
+// 【核心修复】：智能回退获取名字，如果 username 存在就用它
+$display_name = $user['username'] ?? $user['name'] ?? 'Usuario';
 ?>
 <?php include 'includes/header.php'; ?>
 
 <div class="dashboard-container">
     <div class="dashboard-header">
         <h1><i class="fas fa-tachometer-alt"></i> Panel de Usuario</h1>
-        <p class="user-greeting">Hola, <strong><?php echo htmlspecialchars($user['name']); ?></strong></p>
+        <p class="user-greeting">Hola, <strong><?php echo htmlspecialchars($display_name); ?></strong></p>
     </div>
     
     <?php if (isset($error)): ?>
@@ -51,7 +54,7 @@ try {
             <div class="user-profile-card">
                 <div class="profile-avatar"><i class="fas fa-user-circle"></i></div>
                 <div class="profile-info">
-                    <h3><?php echo htmlspecialchars($user['name']); ?></h3>
+                    <h3><?php echo htmlspecialchars($display_name); ?></h3>
                     <p><i class="fas fa-envelope"></i> <?php echo htmlspecialchars($user['email']); ?></p>
                     <p class="join-date"><i class="far fa-clock"></i> Desde: <?php echo date('d/m/Y', strtotime($stats['joined_date'])); ?></p>
                 </div>
@@ -128,7 +131,6 @@ try {
 </div>
 
 <style>
-/* 简单的内联样式补充 */
 .btn-sm {
     padding: 5px 10px;
     border-radius: 4px;
@@ -140,8 +142,4 @@ try {
 .btn-outline { background: white; color: #333; }
 .btn-outline:hover { background: #f0f0f0; }
 
-.btn-danger { background: #fff; color: #dc3545; border-color: #dc3545; }
-.btn-danger:hover { background: #dc3545; color: white; }
-</style>
-
-<?php include 'includes/footer.php'; ?>
+.btn-danger { background: #fff; color: #dc
