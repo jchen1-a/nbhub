@@ -1,5 +1,5 @@
 <?php
-// wiki.php - Página principal de la Wiki (Versión Completa y Estilizada)
+// wiki.php - Página principal de la Wiki (Versión Completa y Reparada)
 require_once 'config.php';
 
 $stats = ['articles' => 0, 'categories' => 0, 'contributors' => 0];
@@ -131,8 +131,8 @@ try {
                                 <i class="fas fa-chevron-right"></i> <?php echo htmlspecialchars($cat['name']); ?>
                             </a>
                         </li>
-                    <?php endendforeach; ?>
-                </ul>
+                    <?php endforeach; ?> 
+                    </ul>
             </div>
         </aside>
 
