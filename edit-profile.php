@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 2. 处理头像上传 (对应文档 RF8 需求)
+    // 2. 处理头像上传
     if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
         $file = $_FILES['avatar'];
         $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
