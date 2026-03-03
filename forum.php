@@ -1,11 +1,17 @@
 <?php
-// forum.php - 论坛页面
+// forum.php - 论坛页面 (终极修复版)
 require_once 'config.php';
 
 $current_page = max(1, intval($_GET['page'] ?? 1));
 $per_page = 10;
 $search = sanitize($_GET['search'] ?? '');
 $category = sanitize($_GET['category'] ?? '');
+
+// 预先定义变量，防止数据库查询失败时导致 HTML 致命错误
+$posts = [];
+$categories = [];
+$total_posts = 0;
+$total_pages = 1;
 
 try {
     $pdo = db_connect();
@@ -15,6 +21,7 @@ try {
     $params = [];
     
     if (!empty($search)) {
+        // 确保使用 LIKE
         $where[] = "(title LIKE ? OR content LIKE ?)";
         $search_term = "%$search%";
         $params[] = $search_term;
@@ -37,6 +44,8 @@ try {
     
     // 获取帖子列表
     $offset = ($current_page - 1) * $per_page;
+    
+    // 【关键修复】直接拼接 LIMIT 和 OFFSET 为整数，避免 PDO 字符串绑定导致的 1064 报错
     $posts_sql = "
         SELECT p.*, 
                u.username as author_name,
@@ -48,12 +57,11 @@ try {
         LEFT JOIN users u ON p.user_id = u.id
         $where_sql
         ORDER BY p.is_pinned DESC, p.last_reply_at DESC
-        LIMIT ? OFFSET ?
-    ";
+        LIMIT " . (int)$per_page . " OFFSET " . (int)$offset;
     
-    $posts_params = array_merge($params, [$per_page, $offset]);
     $posts_stmt = $pdo->prepare($posts_sql);
-    $posts_stmt->execute($posts_params);
+    // 执行时只传 WHERE 条件的参数
+    $posts_stmt->execute($params);
     $posts = $posts_stmt->fetchAll();
     
     // 获取分类
@@ -71,7 +79,6 @@ try {
 <?php include 'includes/header.php'; ?>
 
 <div class="forum-container">
-    <!-- 论坛头部 -->
     <div class="forum-header">
         <div class="forum-header-content">
             <h1><i class="fas fa-comments"></i> Foro de la Comunidad</h1>
@@ -87,7 +94,6 @@ try {
         <?php endif; ?>
     </div>
     
-    <!-- 搜索和过滤 -->
     <div class="forum-filters">
         <form method="GET" class="search-form">
             <div class="search-box">
@@ -117,7 +123,6 @@ try {
         </form>
     </div>
     
-    <!-- 统计信息 -->
     <div class="forum-stats">
         <div class="stat-item">
             <i class="fas fa-file-alt"></i>
@@ -148,10 +153,11 @@ try {
                 <span class="stat-number">
                     <?php
                     try {
+                        // 修复 PostgreSQL 专用的 INTERVAL '30 days' 语法为 MySQL 支持的 30 DAY
                         $active_users = $pdo->query("
                             SELECT COUNT(DISTINCT user_id) as c 
                             FROM forum_posts 
-                            WHERE created_at > NOW() - INTERVAL '30 days'
+                            WHERE created_at > NOW() - INTERVAL 30 DAY
                         ")->fetch()['c'];
                         echo $active_users;
                     } catch (Exception $e) {
@@ -164,7 +170,6 @@ try {
         </div>
     </div>
     
-    <!-- 帖子列表 -->
     <div class="posts-table">
         <div class="table-header">
             <div class="col-topic">Tema</div>
@@ -240,7 +245,7 @@ try {
                 <?php if ($post['last_reply_at']): ?>
                 <div class="last-reply">
                     <span class="last-replier"><?php echo htmlspecialchars($post['last_replier']); ?></span>
-                    <span class="last-time"><?php echo time_ago($post['last_reply_at']); ?></span>
+                    <span class="last-time"><?php echo date('d/m/Y H:i', strtotime($post['last_reply_at'])); ?></span>
                 </div>
                 <?php else: ?>
                 <span class="no-replies">Sin respuestas</span>
@@ -252,7 +257,6 @@ try {
         <?php endif; ?>
     </div>
     
-    <!-- 分页 -->
     <?php if ($total_pages > 1): ?>
     <div class="pagination">
         <?php if ($current_page > 1): ?>
@@ -291,7 +295,6 @@ try {
     </div>
     <?php endif; ?>
     
-    <!-- 热门标签 -->
     <div class="popular-tags">
         <h3><i class="fas fa-tags"></i> Etiquetas Populares</h3>
         <div class="tags-list">
@@ -305,22 +308,25 @@ try {
                     LIMIT 15
                 ")->fetchAll();
                 
-                foreach ($tags as $tag):
+                if($tags) {
+                    foreach ($tags as $tag):
             ?>
             <a href="?search=<?php echo urlencode($tag['tag']); ?>" class="tag">
                 <?php echo htmlspecialchars($tag['tag']); ?>
                 <span class="tag-count"><?php echo $tag['count']; ?></span>
             </a>
             <?php 
-                endforeach;
+                    endforeach;
+                } else {
+                    echo "<span style='color:#999;font-size:0.9em;'>Aún no hay etiquetas.</span>";
+                }
             } catch (Exception $e) {
-                // 忽略标签错误
+                echo "<span style='color:#999;font-size:0.9em;'>Aún no hay etiquetas.</span>";
             }
             ?>
         </div>
     </div>
     
-    <!-- 论坛规则 -->
     <div class="forum-rules">
         <h3><i class="fas fa-gavel"></i> Reglas del Foro</h3>
         <ol>
@@ -334,404 +340,74 @@ try {
 </div>
 
 <style>
-.forum-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.forum-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid var(--accent);
-}
-
-.forum-header h1 {
-    color: var(--primary);
-    margin-bottom: 10px;
-}
-
-.forum-filters {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
-}
-
-.search-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.search-box {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 0 15px;
-}
-
-.search-box i {
-    color: #666;
-}
-
-.search-box input {
-    flex: 1;
-    padding: 15px 0;
-    border: none;
-    background: transparent;
-    font-size: 16px;
-}
-
-.search-box input:focus {
-    outline: none;
-}
-
-.btn-search {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 12px 25px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background 0.3s;
-}
-
-.btn-search:hover {
-    background: #00959c;
-}
-
-.filter-options {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-}
-
-.filter-options select {
-    padding: 10px 15px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    background: white;
-    min-width: 200px;
-}
-
-.forum-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 30px;
-}
-
-.stat-item {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
-}
-
-.stat-item i {
-    font-size: 2em;
-    color: var(--accent);
-}
-
-.stat-number {
-    display: block;
-    font-size: 2em;
-    font-weight: bold;
-    color: var(--primary);
-}
-
-.stat-label {
-    color: #666;
-    font-size: 0.9em;
-}
-
-.posts-table {
-    background: white;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-    margin-bottom: 30px;
-}
-
-.table-header {
-    display: grid;
-    grid-template-columns: 2fr 0.5fr 0.5fr 1fr;
-    background: var(--primary);
-    color: white;
-    padding: 15px 20px;
-    font-weight: bold;
-}
-
-.post-row {
-    display: grid;
-    grid-template-columns: 2fr 0.5fr 0.5fr 1fr;
-    padding: 20px;
-    border-bottom: 1px solid #eee;
-    transition: background 0.3s;
-}
-
-.post-row:hover {
-    background: #f8f9fa;
-}
-
-.post-row.pinned {
-    background: #fff9e6;
-}
-
-.col-topic {
-    padding-right: 20px;
-}
-
-.topic-main {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.badge {
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 0.8em;
-    font-weight: bold;
-}
-
-.pinned-badge {
-    background: var(--warning);
-    color: #333;
-}
-
-.new-badge {
-    background: var(--success);
-    color: white;
-}
-
-.topic-title {
-    margin: 0;
-    flex: 1;
-}
-
-.topic-title a {
-    color: var(--primary);
-    text-decoration: none;
-}
-
-.topic-title a:hover {
-    color: var(--accent);
-}
-
-.topic-meta {
-    display: flex;
-    gap: 15px;
-    font-size: 0.9em;
-    color: #666;
-}
-
-.topic-category {
-    background: #e9ecef;
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-.topic-author a {
-    color: var(--accent);
-    text-decoration: none;
-}
-
-.topic-author a:hover {
-    text-decoration: underline;
-}
-
-.flag {
-    font-size: 1.2em;
-}
-
-.col-replies, .col-views {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.replies-count, .views-count {
-    font-weight: bold;
-    color: var(--primary);
-}
-
-.col-last {
-    display: flex;
-    align-items: center;
-    padding-left: 20px;
-}
-
-.last-reply {
-    display: flex;
-    flex-direction: column;
-}
-
-.last-replier {
-    font-weight: 500;
-    margin-bottom: 5px;
-}
-
-.last-time {
-    font-size: 0.9em;
-    color: #666;
-}
-
-.no-replies {
-    color: #999;
-    font-style: italic;
-}
-
-.empty-forum {
-    text-align: center;
-    padding: 60px 20px;
-}
-
-.empty-forum i {
-    font-size: 4em;
-    color: #ddd;
-    margin-bottom: 20px;
-}
-
-.pagination {
-    display: flex;
-    justify-content: center;
-    gap: 5px;
-    margin: 30px 0;
-}
-
-.page-link {
-    padding: 10px 15px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--primary);
-    transition: all 0.3s;
-    min-width: 40px;
-    text-align: center;
-}
-
-.page-link:hover {
-    background: #f8f9fa;
-    border-color: var(--accent);
-}
-
-.page-link.active {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
-}
-
-.popular-tags, .forum-rules {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    margin-bottom: 30px;
-}
-
-.popular-tags h3, .forum-rules h3 {
-    color: var(--primary);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.tags-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 8px 15px;
-    background: #e9ecef;
-    border-radius: 20px;
-    text-decoration: none;
-    color: var(--primary);
-    transition: all 0.3s;
-    font-size: 0.9em;
-}
-
-.tag:hover {
-    background: var(--accent);
-    color: white;
-}
-
-.tag-count {
-    background: white;
-    color: var(--accent);
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.8em;
-    font-weight: bold;
-}
-
-.forum-rules ol {
-    margin-left: 20px;
-    color: #666;
-}
-
-.forum-rules li {
-    margin-bottom: 10px;
-    line-height: 1.5;
-}
+.forum-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.forum-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--accent); }
+.forum-header h1 { color: var(--primary); margin-bottom: 10px; }
+.forum-filters { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+.search-form { display: flex; flex-direction: column; gap: 15px; }
+.search-box { display: flex; align-items: center; gap: 10px; background: #f8f9fa; border-radius: 8px; padding: 0 15px; }
+.search-box i { color: #666; }
+.search-box input { flex: 1; padding: 15px 0; border: none; background: transparent; font-size: 16px; }
+.search-box input:focus { outline: none; }
+.btn-search { background: var(--accent); color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+.btn-search:hover { background: #00959c; }
+.filter-options { display: flex; gap: 15px; flex-wrap: wrap; }
+.filter-options select { padding: 10px 15px; border: 2px solid #ddd; border-radius: 6px; background: white; min-width: 200px; }
+.forum-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+.stat-item { background: white; padding: 20px; border-radius: 10px; display: flex; align-items: center; gap: 15px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
+.stat-item i { font-size: 2em; color: var(--accent); }
+.stat-number { display: block; font-size: 2em; font-weight: bold; color: var(--primary); }
+.stat-label { color: #666; font-size: 0.9em; }
+.posts-table { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
+.table-header { display: grid; grid-template-columns: 2fr 0.5fr 0.5fr 1fr; background: var(--primary); color: white; padding: 15px 20px; font-weight: bold; }
+.post-row { display: grid; grid-template-columns: 2fr 0.5fr 0.5fr 1fr; padding: 20px; border-bottom: 1px solid #eee; transition: background 0.3s; }
+.post-row:hover { background: #f8f9fa; }
+.post-row.pinned { background: #fff9e6; }
+.col-topic { padding-right: 20px; }
+.topic-main { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.badge { padding: 3px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
+.pinned-badge { background: var(--warning); color: #333; }
+.new-badge { background: var(--success); color: white; }
+.topic-title { margin: 0; flex: 1; }
+.topic-title a { color: var(--primary); text-decoration: none; }
+.topic-title a:hover { color: var(--accent); }
+.topic-meta { display: flex; gap: 15px; font-size: 0.9em; color: #666; }
+.topic-category { background: #e9ecef; padding: 2px 8px; border-radius: 4px; }
+.topic-author a { color: var(--accent); text-decoration: none; }
+.topic-author a:hover { text-decoration: underline; }
+.flag { font-size: 1.2em; }
+.col-replies, .col-views { display: flex; align-items: center; justify-content: center; }
+.replies-count, .views-count { font-weight: bold; color: var(--primary); }
+.col-last { display: flex; align-items: center; padding-left: 20px; }
+.last-reply { display: flex; flex-direction: column; }
+.last-replier { font-weight: 500; margin-bottom: 5px; }
+.last-time { font-size: 0.9em; color: #666; }
+.no-replies { color: #999; font-style: italic; }
+.empty-forum { text-align: center; padding: 60px 20px; }
+.empty-forum i { font-size: 4em; color: #ddd; margin-bottom: 20px; }
+.pagination { display: flex; justify-content: center; gap: 5px; margin: 30px 0; }
+.page-link { padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; text-decoration: none; color: var(--primary); transition: all 0.3s; min-width: 40px; text-align: center; }
+.page-link:hover { background: #f8f9fa; border-color: var(--accent); }
+.page-link.active { background: var(--accent); color: white; border-color: var(--accent); }
+.popular-tags, .forum-rules { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 30px; }
+.popular-tags h3, .forum-rules h3 { color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+.tags-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; padding: 8px 15px; background: #e9ecef; border-radius: 20px; text-decoration: none; color: var(--primary); transition: all 0.3s; font-size: 0.9em; }
+.tag:hover { background: var(--accent); color: white; }
+.tag-count { background: white; color: var(--accent); padding: 2px 8px; border-radius: 10px; font-size: 0.8em; font-weight: bold; }
+.forum-rules ol { margin-left: 20px; color: #666; }
+.forum-rules li { margin-bottom: 10px; line-height: 1.5; }
 
 @media (max-width: 768px) {
-    .forum-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 20px;
-    }
-    
-    .table-header, .post-row {
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-    
-    .col-replies, .col-views, .col-last {
-        justify-content: flex-start;
-        padding-left: 0;
-    }
-    
-    .filter-options {
-        flex-direction: column;
-    }
-    
-    .filter-options select {
-        min-width: 100%;
-    }
+    .forum-header { flex-direction: column; align-items: stretch; gap: 20px; }
+    .table-header, .post-row { grid-template-columns: 1fr; gap: 10px; }
+    .col-replies, .col-views, .col-last { justify-content: flex-start; padding-left: 0; }
+    .filter-options { flex-direction: column; }
+    .filter-options select { min-width: 100%; }
 }
 </style>
 
 <script>
-// 自动完成搜索
-document.querySelector('.search-box input')?.addEventListener('input', async function(e) {
-    const query = this.value.trim();
-    if (query.length < 2) return;
-    
-    // 这里可以添加搜索建议功能
-    // const suggestions = await fetchSuggestions(query);
-    // showSuggestions(suggestions);
-});
-
 // 标记已读
 document.querySelectorAll('.post-row').forEach(row => {
     row.addEventListener('click', function(e) {
@@ -746,18 +422,9 @@ document.querySelectorAll('.post-row').forEach(row => {
 // 辅助函数：获取国旗emoji
 function get_flag($country_code) {
     $flags = [
-        'ES' => '🇪🇸',
-        'MX' => '🇲🇽',
-        'AR' => '🇦🇷',
-        'US' => '🇺🇸',
-        'BR' => '🇧🇷',
-        'FR' => '🇫🇷',
-        'DE' => '🇩🇪',
-        'UK' => '🇬🇧',
-        'IT' => '🇮🇹',
-        'JP' => '🇯🇵',
-        'KR' => '🇰🇷',
-        'CN' => '🇨🇳'
+        'ES' => '🇪🇸', 'MX' => '🇲🇽', 'AR' => '🇦🇷', 'US' => '🇺🇸',
+        'BR' => '🇧🇷', 'FR' => '🇫🇷', 'DE' => '🇩🇪', 'UK' => '🇬🇧',
+        'IT' => '🇮🇹', 'JP' => '🇯🇵', 'KR' => '🇰🇷', 'CN' => '🇨🇳'
     ];
     return $flags[$country_code] ?? '🌐';
 }
