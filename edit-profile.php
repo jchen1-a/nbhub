@@ -81,8 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             $update->execute([$username, $country, $bio, $gender, $avatar_path, $user_id]);
             
-            // 更新 session 中的名字
+            // 【修复Bug】强制刷新所有的 Session 缓存字段，确保全站名字统一
             $_SESSION['user_name'] = $username;
+            $_SESSION['username'] = $username;
+            $_SESSION['name'] = $username; 
             
             $_SESSION['flash_message'] = "¡Perfil actualizado con éxito!";
             header("Location: profile.php");
