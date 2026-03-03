@@ -1,105 +1,71 @@
 <?php
-// wiki.php - 游戏百科页面
+// wiki.php - Página principal de la Wiki (Versión Completa y Estilizada)
 require_once 'config.php';
 
-$section = sanitize($_GET['section'] ?? 'characters');
+$stats = ['articles' => 0, 'categories' => 0, 'contributors' => 0];
+$categories = [];
+$popular_articles = [];
+$recent_articles = [];
 $search = sanitize($_GET['search'] ?? '');
+$filter_category = sanitize($_GET['category'] ?? '');
 
 try {
     $pdo = db_connect();
+
+    // 1. 获取统计数据
+    $stats['articles'] = $pdo->query("SELECT COUNT(*) FROM wiki_articles")->fetchColumn();
+    $stats['categories'] = $pdo->query("SELECT COUNT(*) FROM wiki_categories")->fetchColumn();
+    $stats['contributors'] = $pdo->query("SELECT COUNT(DISTINCT author_id) FROM wiki_articles")->fetchColumn();
+
+    // 2. 获取分类列表
+    $categories = $pdo->query("SELECT id, name FROM wiki_categories ORDER BY name")->fetchAll();
+
+    // 3. 构建查询条件
+    $where = [];
+    $params = [];
     
-    // 获取百科统计数据
-    $stats = $pdo->query("
-        SELECT 
-            (SELECT COUNT(*) FROM wiki_articles WHERE status = 'published') as articles,
-            (SELECT COUNT(*) FROM wiki_categories) as categories,
-            (SELECT COUNT(DISTINCT author_id) FROM wiki_articles) as authors,
-            (SELECT COUNT(*) FROM wiki_media) as media
-    ")->fetch();
-    
-    // 获取热门文章
-    $popular = $pdo->query("
-        SELECT id, title, views, updated_at
-        FROM wiki_articles 
-        WHERE status = 'published'
-        ORDER BY views DESC 
-        LIMIT 5
-    ")->fetchAll();
-    
-    // 获取最新更新
-    $recent = $pdo->query("
-        SELECT id, title, updated_at, author_id,
-               (SELECT username FROM users WHERE id = wiki_articles.author_id) as author_name
-        FROM wiki_articles 
-        WHERE status = 'published'
-        ORDER BY updated_at DESC 
-        LIMIT 5
-    ")->fetchAll();
-    
-    // 获取分类
-    $categories = $pdo->query("
-        SELECT c.*, 
-               COUNT(a.id) as article_count
-        FROM wiki_categories c
-        LEFT JOIN wiki_articles a ON c.id = a.category_id AND a.status = 'published'
-        GROUP BY c.id
-        ORDER BY c.name
-    ")->fetchAll();
-    
-    // 如果搜索，获取搜索结果
-    $search_results = [];
     if (!empty($search)) {
-        $search_stmt = $pdo->prepare("
-            SELECT id, title, content, category_id,
-                   (SELECT name FROM wiki_categories WHERE id = wiki_articles.category_id) as category_name,
-                   ts_rank_cd(to_tsvector('spanish', title || ' ' || content), plainto_tsquery('spanish', ?)) as relevance
-            FROM wiki_articles
-            WHERE status = 'published'
-              AND to_tsvector('spanish', title || ' ' || content) @@ plainto_tsquery('spanish', ?)
-            ORDER BY relevance DESC
-            LIMIT 20
+        $where[] = "(w.title LIKE ? OR w.content LIKE ?)";
+        $params[] = "%$search%";
+        $params[] = "%$search%";
+    }
+    
+    if (!empty($filter_category)) {
+        $where[] = "w.category_id = ?";
+        $params[] = $filter_category;
+    }
+
+    $where_sql = $where ? "WHERE " . implode(" AND ", $where) : "";
+
+    // 4. 获取文章列表
+    if (!empty($where)) {
+        // 搜索或筛选结果
+        $stmt = $pdo->prepare("
+            SELECT w.id, w.title, w.views, w.created_at, u.username, c.name as category_name
+            FROM wiki_articles w
+            LEFT JOIN users u ON w.author_id = u.id
+            LEFT JOIN wiki_categories c ON w.category_id = c.id
+            $where_sql
+            ORDER BY w.views DESC
         ");
-        $search_stmt->execute([$search, $search]);
-        $search_results = $search_stmt->fetchAll();
+        $stmt->execute($params);
+        $search_results = $stmt->fetchAll();
+    } else {
+        // 默认显示：热门与最新
+        $popular_articles = $pdo->query("
+            SELECT w.id, w.title, w.views, u.username
+            FROM wiki_articles w
+            LEFT JOIN users u ON w.author_id = u.id
+            ORDER BY w.views DESC LIMIT 5
+        ")->fetchAll();
+
+        $recent_articles = $pdo->query("
+            SELECT w.id, w.title, w.created_at, u.username
+            FROM wiki_articles w
+            LEFT JOIN users u ON w.author_id = u.id
+            ORDER BY w.created_at DESC LIMIT 5
+        ")->fetchAll();
     }
-    
-    // 获取指定部分的内容
-    $section_content = [];
-    switch ($section) {
-        case 'characters':
-            $section_content = $pdo->query("
-                SELECT id, name, title, role, difficulty, lore
-                FROM wiki_characters 
-                ORDER BY name
-            ")->fetchAll();
-            break;
-            
-        case 'weapons':
-            $section_content = $pdo->query("
-                SELECT id, name, type, damage, attack_speed, description
-                FROM wiki_weapons 
-                ORDER BY type, name
-            ")->fetchAll();
-            break;
-            
-        case 'skills':
-            $section_content = $pdo->query("
-                SELECT id, name, character_id, cooldown, description,
-                       (SELECT name FROM wiki_characters WHERE id = wiki_skills.character_id) as character_name
-                FROM wiki_skills 
-                ORDER BY character_id, name
-            ")->fetchAll();
-            break;
-            
-        case 'maps':
-            $section_content = $pdo->query("
-                SELECT id, name, size, players, description
-                FROM wiki_maps 
-                ORDER BY name
-            ")->fetchAll();
-            break;
-    }
-    
 } catch (Exception $e) {
     $error = "Error al cargar la wiki: " . $e->getMessage();
 }
@@ -107,1094 +73,194 @@ try {
 <?php include 'includes/header.php'; ?>
 
 <div class="wiki-container">
-    <!-- 百科头部 -->
     <div class="wiki-header">
-        <div class="wiki-hero">
-            <h1><i class="fas fa-book"></i> Enciclopedia de Naraka: Bladepoint</h1>
-            <p class="subtitle">La fuente definitiva de información sobre personajes, armas, habilidades y mecánicas</p>
-        </div>
-        
+        <h1><i class="fas fa-book"></i> Enciclopedia de Naraka: Bladepoint</h1>
+        <p>La fuente definitiva de información sobre personajes, armas, habilidades y mecánicas</p>
+
         <div class="wiki-stats">
-            <div class="stat-card">
+            <div class="stat-box">
                 <i class="fas fa-file-alt"></i>
-                <div>
-                    <h3><?php echo $stats['articles'] ?? 0; ?></h3>
-                    <p>Artículos</p>
+                <div class="stat-info">
+                    <span class="stat-num"><?php echo $stats['articles']; ?></span>
+                    <span class="stat-text">Artículos</span>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-box">
                 <i class="fas fa-folder"></i>
-                <div>
-                    <h3><?php echo $stats['categories'] ?? 0; ?></h3>
-                    <p>Categorías</p>
+                <div class="stat-info">
+                    <span class="stat-num"><?php echo $stats['categories']; ?></span>
+                    <span class="stat-text">Categorías</span>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-box">
                 <i class="fas fa-users"></i>
-                <div>
-                    <h3><?php echo $stats['authors'] ?? 0; ?></h3>
-                    <p>Contribuidores</p>
+                <div class="stat-info">
+                    <span class="stat-num"><?php echo $stats['contributors']; ?></span>
+                    <span class="stat-text">Contribuidores</span>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- 搜索栏 -->
-    <div class="wiki-search">
-        <form method="GET" class="search-form">
-            <div class="search-input-group">
-                <i class="fas fa-search"></i>
-                <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" 
-                       placeholder="Buscar en la wiki...">
-                <button type="submit" class="btn-search">
-                    <i class="fas fa-search"></i> Buscar
-                </button>
+
+    <div class="wiki-layout">
+        <aside class="wiki-sidebar">
+            <div class="wiki-card search-card">
+                <form method="GET" action="wiki.php" class="search-form">
+                    <input type="text" name="search" placeholder="Buscar en la wiki..." value="<?php echo htmlspecialchars($search); ?>">
+                    <button type="submit"><i class="fas fa-search"></i> Buscar</button>
+                </form>
             </div>
-            <?php if (!empty($search)): ?>
-            <a href="wiki.php" class="clear-search">
-                <i class="fas fa-times"></i> Limpiar búsqueda
-            </a>
-            <?php endif; ?>
-        </form>
-    </div>
-    
-    <?php if (!empty($search) && !empty($search_results)): ?>
-    <!-- 搜索结果 -->
-    <div class="search-results">
-        <h2><i class="fas fa-search"></i> Resultados de búsqueda para "<?php echo htmlspecialchars($search); ?>"</h2>
-        <div class="results-grid">
-            <?php foreach ($search_results as $result): ?>
-            <div class="result-card">
-                <h3>
-                    <a href="wiki-article.php?id=<?php echo $result['id']; ?>">
-                        <?php echo highlight_search($result['title'], $search); ?>
-                    </a>
-                </h3>
-                <div class="result-meta">
-                    <span class="category"><?php echo htmlspecialchars($result['category_name']); ?></span>
-                    <span class="relevance">Relevancia: <?php echo number_format($result['relevance'], 2); ?></span>
-                </div>
-                <p class="result-excerpt">
-                    <?php echo highlight_search(substr(strip_tags($result['content']), 0, 200), $search); ?>...
-                </p>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    
-    <?php elseif (!empty($search)): ?>
-    <!-- 无搜索结果 -->
-    <div class="no-results">
-        <i class="fas fa-search"></i>
-        <h3>No se encontraron resultados para "<?php echo htmlspecialchars($search); ?>"</h3>
-        <p>Intenta con otras palabras clave o navega por las categorías.</p>
-        <a href="wiki.php" class="btn-primary">Ver toda la wiki</a>
-    </div>
-    
-    <?php else: ?>
-    <!-- 主内容区 -->
-    <div class="wiki-main">
-        <!-- 侧边导航 -->
-        <nav class="wiki-sidebar">
-            <div class="sidebar-section">
-                <h3><i class="fas fa-bars"></i> Navegación</h3>
-                <ul class="nav-menu">
-                    <li class="<?php echo $section == 'characters' ? 'active' : ''; ?>">
-                        <a href="?section=characters">
-                            <i class="fas fa-users"></i> Personajes
-                        </a>
-                    </li>
-                    <li class="<?php echo $section == 'weapons' ? 'active' : ''; ?>">
-                        <a href="?section=weapons">
-                            <i class="fas fa-fist-raised"></i> Armas
-                        </a>
-                    </li>
-                    <li class="<?php echo $section == 'skills' ? 'active' : ''; ?>">
-                        <a href="?section=skills">
-                            <i class="fas fa-magic"></i> Habilidades
-                        </a>
-                    </li>
-                    <li class="<?php echo $section == 'maps' ? 'active' : ''; ?>">
-                        <a href="?section=maps">
-                            <i class="fas fa-map"></i> Mapas
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?section=items">
-                            <i class="fas fa-box-open"></i> Objetos
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?section=mechanics">
-                            <i class="fas fa-cogs"></i> Mecánicas
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?section=lore">
-                            <i class="fas fa-scroll"></i> Historia y Lore
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?section=updates">
-                            <i class="fas fa-sync"></i> Actualizaciones
-                        </a>
-                    </li>
-                </ul>
-            </div>
-            
-            <div class="sidebar-section">
-                <h3><i class="fas fa-fire"></i> Artículos Populares</h3>
-                <div class="popular-list">
-                    <?php foreach ($popular as $article): ?>
-                    <a href="wiki-article.php?id=<?php echo $article['id']; ?>" class="popular-item">
-                        <span class="title"><?php echo htmlspecialchars($article['title']); ?></span>
-                        <span class="views"><i class="fas fa-eye"></i> <?php echo $article['views']; ?></span>
-                    </a>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            
-            <div class="sidebar-section">
-                <h3><i class="fas fa-clock"></i> Recientes</h3>
-                <div class="recent-list">
-                    <?php foreach ($recent as $article): ?>
-                    <div class="recent-item">
-                        <a href="wiki-article.php?id=<?php echo $article['id']; ?>" class="title">
-                            <?php echo htmlspecialchars($article['title']); ?>
-                        </a>
-                        <div class="recent-meta">
-                            <span class="author"><?php echo htmlspecialchars($article['author_name']); ?></span>
-                            <span class="time"><?php echo time_ago($article['updated_at']); ?></span>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            
-            <?php if (is_logged_in()): ?>
-            <div class="sidebar-section contribute-section">
+
+            <div class="wiki-card contribute-card">
                 <h3><i class="fas fa-edit"></i> Contribuir</h3>
                 <p>Ayuda a mejorar la wiki:</p>
-                <a href="wiki-edit.php" class="btn-contribute">
-                    <i class="fas fa-pen"></i> Editar Artículo
-                </a>
-                <a href="wiki-new.php" class="btn-contribute">
-                    <i class="fas fa-plus"></i> Crear Nuevo
-                </a>
+                <?php if (is_logged_in()): ?>
+                    <a href="wiki-new.php" class="btn-block btn-outline"><i class="fas fa-plus"></i> Crear Nuevo</a>
+                <?php else: ?>
+                    <a href="login.php" class="btn-block btn-outline"><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a>
+                <?php endif; ?>
             </div>
-            <?php endif; ?>
-        </nav>
-        
-        <!-- 内容区 -->
+
+            <div class="wiki-card nav-card">
+                <h3><i class="fas fa-bars"></i> Navegación</h3>
+                <ul class="wiki-nav-list">
+                    <li><a href="wiki.php" class="<?php echo empty($filter_category) ? 'active' : ''; ?>"><i class="fas fa-home"></i> Inicio Wiki</a></li>
+                    <?php foreach($categories as $cat): ?>
+                        <li>
+                            <a href="wiki.php?category=<?php echo $cat['id']; ?>" class="<?php echo $filter_category == $cat['id'] ? 'active' : ''; ?>">
+                                <i class="fas fa-chevron-right"></i> <?php echo htmlspecialchars($cat['name']); ?>
+                            </a>
+                        </li>
+                    <?php endendforeach; ?>
+                </ul>
+            </div>
+        </aside>
+
         <main class="wiki-content">
             <?php if (isset($error)): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
-            </div>
+                <div class="alert alert-error"><?php echo $error; ?></div>
             <?php endif; ?>
-            
-            <div class="content-header">
-                <h2>
-                    <?php
-                    $section_titles = [
-                        'characters' => 'Personajes',
-                        'weapons' => 'Armas',
-                        'skills' => 'Habilidades',
-                        'maps' => 'Mapas',
-                        'items' => 'Objetos',
-                        'mechanics' => 'Mecánicas',
-                        'lore' => 'Historia y Lore',
-                        'updates' => 'Actualizaciones'
-                    ];
-                    echo $section_titles[$section] ?? 'Enciclopedia';
-                    ?>
-                </h2>
-                <p class="section-description">
-                    <?php
-                    $descriptions = [
-                        'characters' => 'Información detallada sobre todos los personajes jugables, incluyendo habilidades, estadísticas y lore.',
-                        'weapons' => 'Catálogo completo de armas cuerpo a cuerpo y a distancia, con estadísticas y estrategias.',
-                        'skills' => 'Todas las habilidades disponibles, sus efectos, tiempos de reutilización y combinaciones.',
-                        'maps' => 'Guía de todos los mapas del juego, ubicaciones importantes y estrategias por zona.'
-                    ];
-                    echo $descriptions[$section] ?? 'Información completa y actualizada sobre Naraka: Bladepoint.';
-                    ?>
-                </p>
-            </div>
-            
-            <?php if ($section == 'characters' && !empty($section_content)): ?>
-            <!-- Personajes -->
-            <div class="characters-grid">
-                <?php foreach ($section_content as $character): ?>
-                <div class="character-card">
-                    <div class="character-header">
-                        <h3><?php echo htmlspecialchars($character['name']); ?></h3>
-                        <span class="character-title"><?php echo htmlspecialchars($character['title']); ?></span>
-                    </div>
-                    
-                    <div class="character-info">
-                        <div class="info-row">
-                            <span class="label">Rol:</span>
-                            <span class="value"><?php echo htmlspecialchars($character['role']); ?></span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Dificultad:</span>
-                            <span class="value difficulty-<?php echo strtolower($character['difficulty']); ?>">
-                                <?php echo htmlspecialchars($character['difficulty']); ?>
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <div class="character-lore">
-                        <p><?php echo htmlspecialchars(substr($character['lore'], 0, 150)); ?>...</p>
-                    </div>
-                    
-                    <div class="character-actions">
-                        <a href="wiki-character.php?id=<?php echo $character['id']; ?>" class="btn-view">
-                            <i class="fas fa-eye"></i> Ver Detalles
-                        </a>
-                    </div>
+
+            <?php if (!empty($where)): ?>
+                <div class="wiki-card">
+                    <h2>Resultados de la búsqueda</h2>
+                    <?php if (empty($search_results)): ?>
+                        <p class="empty-text">No se encontraron artículos que coincidan con tu búsqueda.</p>
+                        <a href="wiki.php" class="btn-primary" style="display:inline-block; margin-top:15px;">Volver al inicio</a>
+                    <?php else: ?>
+                        <ul class="article-list">
+                            <?php foreach($search_results as $res): ?>
+                                <li>
+                                    <a href="wiki-article.php?id=<?php echo $res['id']; ?>" class="article-title"><?php echo htmlspecialchars($res['title']); ?></a>
+                                    <div class="article-meta">
+                                        <span class="badge category-badge"><?php echo htmlspecialchars($res['category_name'] ?? 'General'); ?></span>
+                                        <i class="fas fa-eye" style="margin-left:10px;"></i> <?php echo $res['views']; ?> vistas
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
                 </div>
-                <?php endforeach; ?>
-            </div>
-            
-            <?php elseif ($section == 'weapons' && !empty($section_content)): ?>
-            <!-- Armas -->
-            <div class="weapons-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Arma</th>
-                            <th>Tipo</th>
-                            <th>Daño</th>
-                            <th>Velocidad</th>
-                            <th>Descripción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($section_content as $weapon): ?>
-                        <tr>
-                            <td class="weapon-name">
-                                <strong><?php echo htmlspecialchars($weapon['name']); ?></strong>
-                            </td>
-                            <td>
-                                <span class="weapon-type"><?php echo htmlspecialchars($weapon['type']); ?></span>
-                            </td>
-                            <td>
-                                <span class="damage-value"><?php echo $weapon['damage']; ?></span>
-                            </td>
-                            <td>
-                                <div class="speed-bar">
-                                    <div class="speed-fill" style="width: <?php echo min(100, $weapon['attack_speed'] * 20); ?>%"></div>
-                                </div>
-                                <span class="speed-value"><?php echo $weapon['attack_speed']; ?>/5</span>
-                            </td>
-                            <td class="weapon-desc">
-                                <?php echo htmlspecialchars(substr($weapon['description'], 0, 100)); ?>...
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            
-            <?php elseif ($section == 'skills' && !empty($section_content)): ?>
-            <!-- Habilidades -->
-            <div class="skills-grid">
-                <?php foreach ($section_content as $skill): ?>
-                <div class="skill-card">
-                    <div class="skill-header">
-                        <h3><?php echo htmlspecialchars($skill['name']); ?></h3>
-                        <span class="character-badge"><?php echo htmlspecialchars($skill['character_name']); ?></span>
-                    </div>
-                    
-                    <div class="skill-info">
-                        <div class="cooldown">
-                            <i class="fas fa-clock"></i>
-                            <span><?php echo $skill['cooldown']; ?>s</span>
-                        </div>
-                        
-                        <div class="skill-description">
-                            <p><?php echo htmlspecialchars(substr($skill['description'], 0, 120)); ?>...</p>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            
             <?php else: ?>
-            <!-- 默认内容 -->
-            <div class="wiki-intro">
-                <div class="intro-content">
-                    <h3><i class="fas fa-info-circle"></i> Bienvenido a la Enciclopedia</h3>
-                    <p>Esta wiki es una fuente colaborativa de información sobre Naraka: Bladepoint. Aquí encontrarás:</p>
-                    
-                    <div class="features-list">
-                        <div class="feature">
-                            <i class="fas fa-check-circle"></i>
-                            <span>Información actualizada con cada parche</span>
-                        </div>
-                        <div class="feature">
-                            <i class="fas fa-check-circle"></i>
-                            <span>Datos verificados por la comunidad</span>
-                        </div>
-                        <div class="feature">
-                            <i class="fas fa-check-circle"></i>
-                            <span>Guías detalladas y estrategias</span>
-                        </div>
-                        <div class="feature">
-                            <i class="fas fa-check-circle"></i>
-                            <span>Imágenes y videos ilustrativos</span>
-                        </div>
-                    </div>
-                    
-                    <div class="cta-section">
-                        <p>La wiki se mantiene gracias a contribuidores como tú.</p>
-                        <?php if (is_logged_in()): ?>
-                        <a href="wiki-new.php" class="btn-primary">
-                            <i class="fas fa-plus"></i> Contribuir con un artículo
-                        </a>
+                <div class="wiki-grid">
+                    <div class="wiki-card">
+                        <h2><i class="fas fa-fire"></i> Artículos Populares</h2>
+                        <?php if(empty($popular_articles)): ?>
+                            <p class="empty-text">Aún no hay artículos publicados.</p>
                         <?php else: ?>
-                        <p><a href="register.php">Regístrate</a> para empezar a contribuir.</p>
+                            <ul class="article-list">
+                                <?php foreach($popular_articles as $art): ?>
+                                    <li>
+                                        <a href="wiki-article.php?id=<?php echo $art['id']; ?>" class="article-title"><?php echo htmlspecialchars($art['title']); ?></a>
+                                        <div class="article-meta">
+                                            <i class="fas fa-eye"></i> <?php echo $art['views']; ?> vistas | Por <span style="color:var(--accent);"><?php echo htmlspecialchars($art['username']); ?></span>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="wiki-card">
+                        <h2><i class="fas fa-clock"></i> Añadidos Recientemente</h2>
+                        <?php if(empty($recent_articles)): ?>
+                            <p class="empty-text">Aún no hay artículos publicados.</p>
+                        <?php else: ?>
+                            <ul class="article-list">
+                                <?php foreach($recent_articles as $art): ?>
+                                    <li>
+                                        <a href="wiki-article.php?id=<?php echo $art['id']; ?>" class="article-title"><?php echo htmlspecialchars($art['title']); ?></a>
+                                        <div class="article-meta">
+                                            <i class="far fa-calendar"></i> <?php echo date('d/m/Y', strtotime($art['created_at'])); ?> | Por <span style="color:var(--accent);"><?php echo htmlspecialchars($art['username']); ?></span>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
                         <?php endif; ?>
                     </div>
                 </div>
-            </div>
             <?php endif; ?>
         </main>
     </div>
-    <?php endif; ?>
 </div>
 
 <style>
-.wiki-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.wiki-header {
-    background: linear-gradient(135deg, var(--primary) 0%, #2c3e50 100%);
-    color: white;
-    border-radius: 15px;
-    padding: 40px;
-    margin-bottom: 30px;
-}
-
-.wiki-hero h1 {
-    font-size: 2.8em;
-    margin-bottom: 15px;
-}
-
-.subtitle {
-    font-size: 1.2em;
-    opacity: 0.9;
-    max-width: 800px;
-}
-
-.wiki-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-top: 40px;
-}
-
-.stat-card {
-    background: rgba(255,255,255,0.1);
-    padding: 20px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    backdrop-filter: blur(10px);
-}
-
-.stat-card i {
-    font-size: 2.5em;
-    color: var(--accent);
-}
-
-.stat-card h3 {
-    font-size: 2.2em;
-    margin-bottom: 5px;
-}
-
-.stat-card p {
-    opacity: 0.8;
-    font-size: 0.9em;
-}
-
-.wiki-search {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-    margin-bottom: 30px;
-}
-
-.search-input-group {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    background: #f8f9fa;
-    padding: 0 20px;
-    border-radius: 8px;
-}
-
-.search-input-group i {
-    color: #666;
-    font-size: 1.2em;
-}
-
-.search-input-group input {
-    flex: 1;
-    padding: 18px 0;
-    border: none;
-    background: transparent;
-    font-size: 16px;
-}
-
-.search-input-group input:focus {
-    outline: none;
-}
-
-.btn-search {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 15px 30px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: background 0.3s;
-}
-
-.btn-search:hover {
-    background: #00959c;
-}
-
-.clear-search {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--accent);
-    text-decoration: none;
-    margin-top: 15px;
-    font-size: 0.9em;
-}
-
-.clear-search:hover {
-    text-decoration: underline;
-}
-
-/* 搜索结果 */
-.search-results {
-    margin-top: 30px;
-}
-
-.search-results h2 {
-    color: var(--primary);
-    margin-bottom: 30px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.results-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 20px;
-}
-
-.result-card {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    transition: transform 0.3s;
-}
-
-.result-card:hover {
-    transform: translateY(-5px);
-}
-
-.result-card h3 {
-    margin-bottom: 10px;
-}
-
-.result-card h3 a {
-    color: var(--primary);
-    text-decoration: none;
-}
-
-.result-card h3 a:hover {
-    color: var(--accent);
-}
-
-.result-meta {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 15px;
-    font-size: 0.9em;
-    color: #666;
-}
-
-.result-excerpt {
-    color: #666;
-    line-height: 1.6;
-}
-
-.highlight {
-    background: yellow;
-    font-weight: bold;
-}
-
-.no-results {
-    text-align: center;
-    padding: 60px 20px;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-}
-
-.no-results i {
-    font-size: 4em;
-    color: #ddd;
-    margin-bottom: 20px;
-}
-
-.no-results h3 {
-    margin-bottom: 15px;
-    color: var(--primary);
-}
-
-/* 主内容区 */
-.wiki-main {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 30px;
-}
-
-/* 侧边栏 */
-.wiki-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-}
-
-.sidebar-section {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-}
-
-.sidebar-section h3 {
-    color: var(--primary);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.nav-menu {
-    list-style: none;
-}
-
-.nav-menu li {
-    margin: 8px 0;
-}
-
-.nav-menu a {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 15px;
-    border-radius: 6px;
-    color: #333;
-    text-decoration: none;
-    transition: all 0.3s;
-}
-
-.nav-menu a:hover {
-    background: #f8f9fa;
-    color: var(--accent);
-}
-
-.nav-menu li.active a {
-    background: var(--accent);
-    color: white;
-}
-
-.popular-list, .recent-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.popular-item, .recent-item {
-    display: block;
-    padding: 12px;
-    border: 1px solid #eee;
-    border-radius: 6px;
-    text-decoration: none;
-    color: #333;
-    transition: all 0.3s;
-}
-
-.popular-item:hover, .recent-item:hover {
-    border-color: var(--accent);
-    background: #f8f9fa;
-}
-
-.popular-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.popular-item .title {
-    flex: 1;
-    margin-right: 10px;
-}
-
-.popular-item .views {
-    color: #666;
-    font-size: 0.9em;
-}
-
-.recent-item .title {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-}
-
-.recent-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.85em;
-    color: #666;
-}
-
-.contribute-section {
-    background: linear-gradient(135deg, var(--accent) 0%, #00959c 100%);
-    color: white;
-}
-
-.contribute-section h3, .contribute-section p {
-    color: white;
-}
-
-.btn-contribute {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    background: white;
-    color: var(--accent);
-    border: none;
-    border-radius: 6px;
-    text-decoration: none;
-    text-align: center;
-    margin-top: 10px;
-    font-weight: bold;
-    transition: all 0.3s;
-}
-
-.btn-contribute:hover {
-    background: #f8f9fa;
-    transform: translateY(-2px);
-}
-
-/* 内容区 */
-.wiki-content {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-}
-
-.content-header {
-    background: white;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-}
-
-.content-header h2 {
-    color: var(--primary);
-    margin-bottom: 15px;
-    font-size: 2em;
-}
-
-.section-description {
-    color: #666;
-    font-size: 1.1em;
-    line-height: 1.6;
-}
-
-/* 人物网格 */
-.characters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 25px;
-}
-
-.character-card {
-    background: white;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    transition: transform 0.3s;
-}
-
-.character-card:hover {
-    transform: translateY(-5px);
-}
-
-.character-header {
-    background: linear-gradient(90deg, var(--primary), var(--dark));
-    color: white;
-    padding: 20px;
-}
-
-.character-header h3 {
-    margin-bottom: 5px;
-    font-size: 1.4em;
-}
-
-.character-title {
-    opacity: 0.9;
-    font-size: 0.9em;
-}
-
-.character-info {
-    padding: 20px;
-    border-bottom: 1px solid #eee;
-}
-
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    margin: 10px 0;
-}
-
-.label {
-    color: #666;
-    font-weight: 500;
-}
-
-.value {
-    color: var(--primary);
-    font-weight: bold;
-}
-
-.difficulty-easy {
-    color: var(--success);
-}
-
-.difficulty-medium {
-    color: var(--warning);
-}
-
-.difficulty-hard {
-    color: var(--danger);
-}
-
-.character-lore {
-    padding: 20px;
-    color: #666;
-    line-height: 1.6;
-}
-
-.character-actions {
-    padding: 20px;
-    text-align: center;
-}
-
-.btn-view {
-    display: inline-block;
-    padding: 12px 25px;
-    background: var(--accent);
-    color: white;
-    border-radius: 6px;
-    text-decoration: none;
-    font-weight: bold;
-    transition: background 0.3s;
-}
-
-.btn-view:hover {
-    background: #00959c;
-}
-
-/* 武器表格 */
-.weapons-table {
-    background: white;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-}
-
-.weapons-table table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.weapons-table th {
-    background: var(--primary);
-    color: white;
-    padding: 15px;
-    text-align: left;
-    font-weight: 600;
-}
-
-.weapons-table td {
-    padding: 15px;
-    border-bottom: 1px solid #eee;
-}
-
-.weapon-name {
-    font-size: 1.1em;
-}
-
-.weapon-type {
-    background: #e9ecef;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.9em;
-}
-
-.damage-value {
-    font-weight: bold;
-    color: var(--danger);
-    font-size: 1.2em;
-}
-
-.speed-bar {
-    width: 100px;
-    height: 8px;
-    background: #eee;
-    border-radius: 4px;
-    margin: 5px 0;
-    overflow: hidden;
-}
-
-.speed-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 4px;
-}
-
-.speed-value {
-    font-size: 0.9em;
-    color: #666;
-}
-
-/* 技能网格 */
-.skills-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-}
-
-.skill-card {
-    background: white;
-    padding: 25px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    transition: transform 0.3s;
-}
-
-.skill-card:hover {
-    transform: translateY(-5px);
-}
-
-.skill-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.skill-header h3 {
-    margin: 0;
-}
-
-.character-badge {
-    background: var(--accent);
-    color: white;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.8em;
-}
-
-.cooldown {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #666;
-    margin-bottom: 15px;
-}
-
-/* 介绍部分 */
-.wiki-intro {
-    background: white;
-    padding: 40px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-}
-
-.intro-content h3 {
-    color: var(--primary);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.features-list {
-    margin: 30px 0;
-}
-
-.feature {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin: 15px 0;
-}
-
-.feature i {
-    color: var(--success);
-}
-
-.cta-section {
-    margin-top: 40px;
-    padding-top: 30px;
-    border-top: 1px solid #eee;
-    text-align: center;
-}
-
-@media (max-width: 1024px) {
-    .wiki-main {
-        grid-template-columns: 1fr;
-    }
-    
-    .wiki-stats {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .wiki-hero h1 {
-        font-size: 2em;
-    }
-    
-    .wiki-stats {
-        grid-template-columns: 1fr;
-    }
-    
-    .search-input-group {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .search-input-group input {
-        padding: 15px;
-    }
-    
-    .characters-grid,
-    .skills-grid,
-    .results-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .weapons-table {
-        overflow-x: auto;
-    }
-    
-    .weapons-table table {
-        min-width: 600px;
-    }
+/* Wiki 专属美化 CSS */
+.wiki-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.wiki-header { background: linear-gradient(135deg, var(--primary) 0%, #1a1a2e 100%); color: white; padding: 40px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+.wiki-header h1 { margin-bottom: 10px; color: #00adb5; font-size: 2.5em; }
+.wiki-header p { font-size: 1.1em; opacity: 0.9; }
+
+.wiki-stats { display: flex; gap: 20px; margin-top: 30px; flex-wrap: wrap; }
+.stat-box { display: flex; align-items: center; gap: 15px; background: rgba(255,255,255,0.1); padding: 15px 25px; border-radius: 8px; flex: 1; min-width: 200px; border: 1px solid rgba(255,255,255,0.05); }
+.stat-box i { font-size: 2.2em; color: #00adb5; }
+.stat-info { display: flex; flex-direction: column; }
+.stat-num { font-size: 1.8em; font-weight: bold; }
+.stat-text { font-size: 0.9em; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; }
+
+.wiki-layout { display: grid; grid-template-columns: 300px 1fr; gap: 30px; }
+
+.wiki-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
+.wiki-card h2, .wiki-card h3 { color: var(--primary); margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+
+.search-form { display: flex; gap: 10px; }
+.search-form input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 15px; }
+.search-form button { padding: 12px 20px; background: #00adb5; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+.search-form button:hover { background: #008f96; }
+
+.contribute-card { background: #00adb5; color: white; }
+.contribute-card h3 { color: white; border-bottom-color: rgba(255,255,255,0.3); }
+.btn-block { display: block; text-align: center; margin-top: 15px; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: bold; transition: all 0.3s; }
+.btn-outline { background: white; color: #00adb5; border: 2px solid white; }
+.btn-outline:hover { background: transparent; color: white; }
+
+.wiki-nav-list { list-style: none; padding: 0; margin: 0; }
+.wiki-nav-list li { margin-bottom: 5px; }
+.wiki-nav-list a { display: block; padding: 12px 15px; color: #555; text-decoration: none; border-radius: 6px; transition: all 0.2s; font-weight: 500; }
+.wiki-nav-list a:hover, .wiki-nav-list a.active { background: #f8f9fa; color: #00adb5; font-weight: bold; padding-left: 20px; }
+.wiki-nav-list i { margin-right: 10px; color: #aaa; width: 20px; text-align: center; }
+.wiki-nav-list a.active i { color: #00adb5; }
+
+.wiki-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+
+.article-list { list-style: none; padding: 0; margin: 0; }
+    .article-list li { padding: 15px 0; border-bottom: 1px solid #eee; transition: transform 0.2s; }
+.article-list li:hover { transform: translateX(5px); }
+.article-list li:last-child { border-bottom: none; padding-bottom: 0; }
+.article-title { font-size: 1.15em; font-weight: bold; color: var(--primary); text-decoration: none; display: block; margin-bottom: 8px; }
+.article-title:hover { color: #00adb5; }
+.article-meta { font-size: 0.85em; color: #888; display: flex; align-items: center; gap: 5px; }
+.category-badge { background: #e9ecef; color: #555; padding: 3px 8px; border-radius: 4px; }
+
+.empty-text { color: #999; font-style: italic; text-align: center; padding: 20px 0; }
+
+@media (max-width: 900px) {
+    .wiki-layout { grid-template-columns: 1fr; }
+    .wiki-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+    .wiki-stats { flex-direction: column; }
 }
 </style>
-
-<script>
-// 搜索建议
-document.querySelector('.wiki-search input')?.addEventListener('input', async function(e) {
-    const query = this.value.trim();
-    if (query.length < 2) return;
-    
-    try {
-        const response = await fetch(`wiki-search.php?q=${encodeURIComponent(query)}`);
-        const suggestions = await response.json();
-        showSearchSuggestions(suggestions);
-    } catch (error) {
-        // 静默失败
-    }
-});
-
-function showSearchSuggestions(suggestions) {
-    const container = document.createElement('div');
-    container.className = 'search-suggestions';
-    
-    suggestions.forEach(suggestion => {
-        const div = document.createElement('div');
-        div.className = 'suggestion-item';
-        div.textContent = suggestion.title;
-        div.addEventListener('click', () => {
-            window.location.href = `wiki-article.php?id=${suggestion.id}`;
-        });
-        container.appendChild(div);
-    });
-    
-    const existing = document.querySelector('.search-suggestions');
-    if (existing) existing.remove();
-    
-    document.querySelector('.wiki-search').appendChild(container);
-}
-
-// 点击外部关闭建议
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.search-suggestions') && !e.target.closest('.wiki-search input')) {
-        const suggestions = document.querySelector('.search-suggestions');
-        if (suggestions) suggestions.remove();
-    }
-});
-
-// 页面滚动效果
-window.addEventListener('scroll', function() {
-    const header = document.querySelector('.wiki-header');
-    const scrollY = window.scrollY;
-    
-    if (scrollY > 100) {
-        header.style.transform = 'translateY(-10px)';
-        header.style.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
-    } else {
-        header.style.transform = 'translateY(0)';
-        header.style.boxShadow = 'none';
-    }
-});
-</script>
-
-<?php 
-// 辅助函数：高亮搜索词
-function highlight_search($text, $search) {
-    if (empty($search)) return htmlspecialchars($text);
-    
-    $words = explode(' ', $search);
-    foreach ($words as $word) {
-        $word = trim($word);
-        if (!empty($word)) {
-            $text = preg_replace(
-                "/\b(" . preg_quote($word, '/') . ")\b/i",
-                '<span class="highlight">$1</span>',
-                htmlspecialchars($text)
-            );
-        }
-    }
-    return $text;
-}
-?>
 
 <?php include 'includes/footer.php'; ?>
