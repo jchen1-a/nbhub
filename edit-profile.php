@@ -1,5 +1,5 @@
 <?php
-// edit-profile.php - 编辑个人资料与头像上传 (已修复名称同步 Bug)
+// edit-profile.php - 编辑个人资料与头像上传 (完整版 - 已加入终极缓存同步逻辑)
 require_once 'config.php';
 require_login(); // 必须登录
 
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if (move_uploaded_file($file['tmp_name'], $upload_dir . $new_filename)) {
                 $avatar_path = $upload_dir . $new_filename;
-                // 可选：删除旧头像以节省空间
+                // 删除旧头像以节省空间
                 if ($current_user['avatar'] && file_exists($current_user['avatar'])) {
                     unlink($current_user['avatar']);
                 }
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 3. 更新数据库
+    // 3. 更新数据库与地毯式缓存同步
     if (empty($errors)) {
         try {
             $update = $pdo->prepare("
@@ -81,10 +81,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             $update->execute([$username, $country, $bio, $gender, $avatar_path, $user_id]);
             
-            // 【核心修复】：强制更新所有可能的 Session 缓存变量，让右上角下拉菜单瞬间同步
+            // 【终极缓存同步】：覆盖所有可能用来显示名字的 Session 变量
             $_SESSION['user_name'] = $username;
             $_SESSION['username'] = $username;
             $_SESSION['name'] = $username;
+            
+            // 如果你的登录系统使用了数组存储，也同步更新它
+            if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
+                $_SESSION['user']['username'] = $username;
+                $_SESSION['user']['name'] = $username;
+                $_SESSION['user']['user_name'] = $username;
+            }
             
             $_SESSION['flash_message'] = "¡Perfil actualizado con éxito!";
             header("Location: profile.php");
