@@ -1,89 +1,79 @@
 <?php
-// includes/footer.php
+// includes/footer.php - 完美美化版
+$stats_users = 0; 
+$stats_guides = 0;
+try {
+    if(function_exists('db_connect')) {
+        $pdo_footer = db_connect();
+        $stats_users = $pdo_footer->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $stats_guides = $pdo_footer->query("SELECT COUNT(*) FROM articles")->fetchColumn();
+    }
+} catch(Exception $e) {}
 ?>
-    </main> <!-- 关闭主内容区 -->
-
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3><i class="fas fa-gamepad"></i> Naraka Hub</h3>
-                    <p>Tu centro de información para Naraka: Bladepoint</p>
-                    <p class="footer-stats">
-                        <?php
-                        try {
-                            $pdo = db_connect();
-                            $users = $pdo->query("SELECT COUNT(*) as count FROM users")->fetch()['count'];
-                            $posts = $pdo->query("SELECT COUNT(*) as count FROM articles")->fetch()['count'];
-                            echo "<span><i class='fas fa-users'></i> $users usuarios</span>";
-                            echo "<span><i class='fas fa-file-alt'></i> $posts guías</span>";
-                        } catch (Exception $e) {
-                            echo "<span><i class='fas fa-database'></i> Base de datos: No conectada</span>";
-                        }
-                        ?>
-                    </p>
-                </div>
-                
-                <div class="footer-section">
-                    <h4>Enlaces Rápidos</h4>
-                    <ul>
-                        <li><a href="index.php"><i class="fas fa-home"></i> Inicio</a></li>
-                        <li><a href="wiki.php"><i class="fas fa-book"></i> Wiki</a></li>
-                        <li><a href="guides.php"><i class="fas fa-graduation-cap"></i> Guías</a></li>
-                        <li><a href="forum.php"><i class="fas fa-comments"></i> Foro</a></li>
-                        <li><a href="test_db.php"><i class="fas fa-database"></i> Estado del sistema</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-section">
-                    <h4>Comunidad</h4>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-discord"></i> Discord</a>
-                        <a href="#"><i class="fab fa-twitter"></i> Twitter</a>
-                        <a href="#"><i class="fab fa-youtube"></i> YouTube</a>
-                        <a href="#"><i class="fab fa-github"></i> GitHub</a>
-                    </div>
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-col">
+                <h3 class="footer-logo"><i class="fas fa-gamepad"></i> Naraka Hub</h3>
+                <p>Tu centro de información definitivo para Naraka: Bladepoint.</p>
+                <div class="footer-stats">
+                    <span><i class="fas fa-users"></i> <?php echo $stats_users; ?> usuarios</span>
+                    <span><i class="fas fa-file-alt"></i> <?php echo $stats_guides; ?> guías</span>
                 </div>
             </div>
             
-            <div class="footer-bottom">
-                <p>Proyecto desarrollado por <strong>Ming Liuzhang</strong> y <strong>Juncheng Chen</strong></p>
-                <p>© <?php echo date('Y'); ?> Naraka Hub. Todos los derechos reservados.</p>
-                <p class="debug-info">
-                    <?php 
-                    echo "Sesión: " . (is_logged_in() ? '✅ Activa' : '❌ Inactiva');
-                    echo " | Servidor: " . date('H:i:s');
-                    echo " | PHP: " . PHP_VERSION;
-                    ?>
-                </p>
+            <div class="footer-col">
+                <h3>Enlaces Rápidos</h3>
+                <ul>
+                    <li><a href="index.php"><i class="fas fa-home"></i> Inicio</a></li>
+                    <li><a href="wiki.php"><i class="fas fa-book"></i> Wiki Actualizada</a></li>
+                    <li><a href="guides.php"><i class="fas fa-graduation-cap"></i> Guías Expertas</a></li>
+                    <li><a href="forum.php"><i class="fas fa-comments"></i> Foro Activo</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-col">
+                <h3>Comunidad</h3>
+                <div class="social-links">
+                    <a href="#"><i class="fab fa-discord"></i> Discord Oficial</a>
+                    <a href="#"><i class="fab fa-twitter"></i> Twitter</a>
+                    <a href="#"><i class="fab fa-youtube"></i> YouTube</a>
+                    <a href="#"><i class="fab fa-github"></i> GitHub</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>Proyecto desarrollado por <strong>Ming Liuzhang</strong> y <strong>Juncheng Chen</strong></p>
+            <p>&copy; <?php echo date('Y'); ?> Naraka Hub. Todos los derechos reservados.</p>
+            <div class="server-status">
+                Sesión: <span style="color:#28a745;"><i class="fas fa-check-square"></i> Activa</span> | Servidor: <?php echo date('H:i:s'); ?> | PHP: <?php echo phpversion(); ?>
             </div>
         </div>
     </footer>
 
-    <!-- JavaScript -->
-    <script src="js/main.js"></script>
-    <script>
-        // 用户下拉菜单
-        document.querySelector('.user-dropdown')?.addEventListener('click', function(e) {
-            this.querySelector('.dropdown-menu').classList.toggle('show');
-        });
-        
-        // 点击外部关闭下拉菜单
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.user-dropdown')) {
-                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                    menu.classList.remove('show');
-                });
-            }
-        });
-        
-        // 自动隐藏系统消息
-        setTimeout(() => {
-            document.querySelectorAll('.system-alert').forEach(alert => {
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
-            });
-        }, 5000);
-    </script>
+    <style>
+    /* 页脚专属美化 CSS */
+    .site-footer { background: var(--primary); color: #ccc; padding: 60px 20px 20px; margin-top: 60px; font-size: 0.95em; border-top: 5px solid var(--accent); }
+    .footer-container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 40px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 40px; }
+    
+    .footer-col h3 { color: white; margin-bottom: 20px; font-size: 1.2em; border-bottom: 2px solid var(--accent); padding-bottom: 10px; display: inline-block; }
+    .footer-logo { color: var(--accent) !important; border: none !important; font-size: 1.5em !important; margin-bottom: 10px !important; }
+    .footer-col p { margin: 10px 0; line-height: 1.6; }
+    
+    .footer-stats { display: flex; gap: 15px; margin-top: 15px; color: #888; font-size: 0.9em; }
+    
+    .footer-col ul { list-style: none; padding: 0; margin: 0; }
+    .footer-col ul li { margin-bottom: 12px; }
+    .footer-col ul a { color: #aaa; text-decoration: none; transition: 0.3s; display: flex; align-items: center; gap: 10px; }
+    .footer-col ul a:hover { color: var(--accent); transform: translateX(5px); }
+    
+    .social-links { display: flex; flex-direction: column; gap: 12px; }
+    .social-links a { color: #aaa; text-decoration: none; transition: 0.3s; display: flex; align-items: center; gap: 10px; }
+    .social-links a:hover { color: white; transform: translateX(5px); }
+    
+    .footer-bottom { text-align: center; padding-top: 25px; color: #888; }
+    .footer-bottom p { margin: 5px 0; }
+    .server-status { font-size: 0.85em; background: rgba(0,0,0,0.2); display: inline-block; padding: 8px 20px; border-radius: 20px; margin-top: 15px; border: 1px solid rgba(255,255,255,0.05); }
+    </style>
 </body>
 </html>

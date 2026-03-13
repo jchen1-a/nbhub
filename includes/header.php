@@ -1,24 +1,23 @@
 <?php
-// includes/header.php - 100% 完整版 (包含实时名称同步 & 管理员专属菜单入口)
+// includes/header.php - 完美恢复排版版 (包含管理员权限 & 全局CSS)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 $header_username = 'Usuario';
-$is_admin = false; // 默认不是管理员
+$is_admin = false;
 
 if (isset($_SESSION['user_id'])) {
     try {
         if (function_exists('db_connect')) {
             $pdo_header = db_connect();
-            // 同时获取 username 和 role
             $stmt_header = $pdo_header->prepare("SELECT username, role FROM users WHERE id = ?");
             $stmt_header->execute([$_SESSION['user_id']]);
             $real_user = $stmt_header->fetch();
             
             if ($real_user) {
                 $header_username = $real_user['username'];
-                $is_admin = ($real_user['role'] === 'admin'); // 判断是否为管理员
+                $is_admin = ($real_user['role'] === 'admin');
                 $_SESSION['user_name'] = $header_username; 
             }
         }
@@ -35,7 +34,7 @@ if (isset($_SESSION['user_id'])) {
     <title>Naraka Hub</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* 基础全局变量 */
+        /* ================= 核心全局排版 CSS (请勿删除) ================= */
         :root {
             --primary: #1a1a2e;
             --accent: #00adb5;
@@ -45,9 +44,27 @@ if (isset($_SESSION['user_id'])) {
             --danger: #dc3545;
             --warning: #ffc107;
         }
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); }
         
-        /* 导航栏样式 */
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        
+        /* 全局容器与布局 */
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        a { text-decoration: none; color: var(--accent); transition: 0.3s; }
+        a:hover { color: #008f96; }
+        
+        /* 全局卡片样式 */
+        .card, .wiki-card, .post-card { background: white; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); margin-bottom: 25px; overflow: hidden; }
+        .card-header { padding: 15px 20px; border-bottom: 1px solid #eee; background: #fafafa; margin: 0; }
+        .card-body { padding: 20px; }
+        
+        /* 全局按钮样式 */
+        .btn, .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; text-decoration: none; }
+        .btn:hover, .btn-primary:hover { background: #008f96; color: white; }
+        .btn-outline { background: white; color: var(--accent); border: 2px solid var(--accent); }
+        .btn-outline:hover { background: var(--accent); color: white; }
+
+        /* ================= 导航栏样式 ================= */
         .navbar { background: var(--primary); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
         .nav-brand { font-size: 1.5em; font-weight: bold; color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 10px; }
         .nav-links { display: flex; gap: 20px; align-items: center; }
@@ -58,7 +75,7 @@ if (isset($_SESSION['user_id'])) {
         .user-menu { position: relative; display: inline-block; cursor: pointer; }
         .user-menu-btn { display: flex; align-items: center; gap: 8px; color: white; background: rgba(255,255,255,0.1); padding: 8px 15px; border-radius: 20px; transition: background 0.3s; border: 1px solid transparent; }
         .user-menu-btn:hover { background: rgba(255,255,255,0.2); }
-        .user-menu-btn.admin-glow { border-color: var(--warning); color: var(--warning); } /* 管理员发光特效 */
+        .user-menu-btn.admin-glow { border-color: var(--warning); color: var(--warning); }
         
         .dropdown-content { display: none; position: absolute; right: 0; background-color: white; min-width: 200px; box-shadow: 0px 8px 20px rgba(0,0,0,0.2); z-index: 1000; border-radius: 8px; overflow: hidden; margin-top: 10px; }
         .dropdown-content a { color: var(--text); padding: 12px 16px; text-decoration: none; display: block; font-size: 0.95em; border-bottom: 1px solid #eee; transition: 0.2s; }
@@ -93,7 +110,6 @@ if (isset($_SESSION['user_id'])) {
                                 <i class="fas fa-shield-alt"></i> Panel de Admin
                             </a>
                         <?php endif; ?>
-                        
                         <a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Panel de Usuario</a>
                         <a href="profile.php"><i class="fas fa-id-badge"></i> Mi Perfil</a>
                         <a href="edit-profile.php"><i class="fas fa-user-cog"></i> Editar Perfil</a>
@@ -101,13 +117,13 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                 </div>
             <?php else: ?>
-                <a href="login.php" style="background: var(--accent); padding: 8px 20px; border-radius: 20px;">Iniciar Sesión</a>
+                <a href="login.php" style="background: var(--accent); padding: 8px 20px; border-radius: 20px; color: white;">Iniciar Sesión</a>
             <?php endif; ?>
         </div>
     </nav>
     
     <?php if (isset($_SESSION['flash_message'])): ?>
-        <div style="max-width: 1200px; margin: 20px auto; padding: 0 20px;">
+        <div class="container">
             <div class="alert alert-success">
                 <i class="fas fa-check-circle"></i> <?php echo $_SESSION['flash_message']; ?>
                 <?php unset($_SESSION['flash_message']); ?>
@@ -116,7 +132,7 @@ if (isset($_SESSION['user_id'])) {
     <?php endif; ?>
     
     <?php if (isset($_SESSION['flash_error'])): ?>
-        <div style="max-width: 1200px; margin: 20px auto; padding: 0 20px;">
+        <div class="container">
             <div class="alert alert-error">
                 <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['flash_error']; ?>
                 <?php unset($_SESSION['flash_error']); ?>
