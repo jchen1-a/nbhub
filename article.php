@@ -1,5 +1,5 @@
 <?php
-// article.php - 完整版 (包含编辑/删除、视频播放、防爆排版、以及全新的【评论系统】)
+// article.php - 100% 完整版 (包含点赞系统、评论、视频播放、编辑删除、防炸版CSS)
 require_once 'config.php';
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -25,7 +25,23 @@ try {
         $_SESSION['viewed_articles'][] = $id;
     }
 
-    // 3. 【新功能】处理用户提交的新评论
+    // 3. 处理点赞 / 取消点赞 (新功能)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_like']) && is_logged_in()) {
+        $check_like = $pdo->prepare("SELECT 1 FROM article_likes WHERE article_id = ? AND user_id = ?");
+        $check_like->execute([$id, $user_id]);
+        if ($check_like->fetch()) {
+            // 已经点赞则取消
+            $pdo->prepare("DELETE FROM article_likes WHERE article_id = ? AND user_id = ?")->execute([$id, $user_id]);
+        } else {
+            // 未点赞则添加
+            $pdo->prepare("INSERT IGNORE INTO article_likes (article_id, user_id, created_at) VALUES (?, ?, NOW())")->execute([$id, $user_id]);
+        }
+        // 重定向防止表单重复提交
+        header("Location: article.php?id=" . $id);
+        exit();
+    }
+
+    // 4. 处理用户提交的新评论
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_content']) && is_logged_in()) {
         $comment_content = trim($_POST['comment_content']);
         if (!empty($comment_content)) {
@@ -37,7 +53,7 @@ try {
         }
     }
 
-    // 4. 【新功能】获取所有评论
+    // 5. 获取所有评论
     $comments_stmt = $pdo->prepare("
         SELECT c.*, u.username, u.avatar 
         FROM article_comments c 
@@ -47,6 +63,18 @@ try {
     ");
     $comments_stmt->execute([$id]);
     $comments = $comments_stmt->fetchAll();
+
+    // 6. 获取点赞总数及当前用户是否已点赞
+    $likes_count = $pdo->prepare("SELECT COUNT(*) FROM article_likes WHERE article_id = ?");
+    $likes_count->execute([$id]);
+    $total_likes = $likes_count->fetchColumn();
+
+    $user_has_liked = false;
+    if (is_logged_in()) {
+        $like_check_stmt = $pdo->prepare("SELECT 1 FROM article_likes WHERE article_id = ? AND user_id = ?");
+        $like_check_stmt->execute([$id, $user_id]);
+        $user_has_liked = (bool)$like_check_stmt->fetch();
+    }
 
 } catch (Exception $e) {
     die("Error: " . $e->getMessage());
@@ -77,10 +105,11 @@ function getYoutubeEmbedUrl($url) {
             <?php echo htmlspecialchars($article['title']); ?>
         </h1>
         
-        <div style="display:flex; gap:20px; color:#666; font-size:0.9em;">
+        <div style="display:flex; flex-wrap:wrap; gap:20px; color:#666; font-size:0.9em; align-items: center;">
             <span><i class="far fa-clock"></i> <?php echo date('d/m/Y', strtotime($article['created_at'])); ?></span>
             <span><i class="fas fa-eye"></i> <?php echo $article['views']; ?> vistas</span>
             <span><i class="fas fa-comment"></i> <?php echo count($comments); ?> comentarios</span>
+            <span style="color: var(--danger); font-weight: bold;"><i class="fas fa-heart"></i> <?php echo $total_likes; ?> me gusta</span>
         </div>
     </div>
 
@@ -118,18 +147,31 @@ function getYoutubeEmbedUrl($url) {
     </div>
     
     <div style="margin-top: 30px; margin-bottom: 50px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        
         <a href="guides.php" style="padding: 10px 20px; border: 2px solid #ddd; border-radius: 8px; color: #333; text-decoration:none; font-weight:bold;"><i class="fas fa-arrow-left"></i> Volver a Guías</a>
         
-        <?php if ($user_id == $article['user_id']): ?>
-            <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <?php if (is_logged_in()): ?>
+                <form method="POST" style="margin: 0;">
+                    <input type="hidden" name="toggle_like" value="1">
+                    <button type="submit" class="btn-like <?php echo $user_has_liked ? 'liked' : ''; ?>">
+                        <i class="<?php echo $user_has_liked ? 'fas' : 'far'; ?> fa-heart"></i> 
+                        <?php echo $user_has_liked ? 'Te gusta' : 'Me gusta'; ?> (<?php echo $total_likes; ?>)
+                    </button>
+                </form>
+            <?php else: ?>
+                <a href="login.php" class="btn-like" title="Inicia sesión para dar me gusta"><i class="far fa-heart"></i> Me gusta (<?php echo $total_likes; ?>)</a>
+            <?php endif; ?>
+
+            <?php if ($user_id == $article['user_id']): ?>
                 <a href="edit-guide.php?id=<?php echo $article['id']; ?>" class="btn-edit">
                     <i class="fas fa-edit"></i> Editar
                 </a>
                 <a href="delete-guide.php?id=<?php echo $article['id']; ?>" class="btn-danger" onclick="return confirm('¿Seguro que quieres eliminar esta guía?');">
                     <i class="fas fa-trash"></i> Eliminar
                 </a>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
+        </div>
     </div>
 
     <div class="comments-section" style="border-top: 2px solid #eee; padding-top: 40px;">
@@ -186,21 +228,25 @@ function getYoutubeEmbedUrl($url) {
 </div>
 
 <style>
-.article-content-box {
-    background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); 
-    font-size: 1.1em; line-height: 1.8; color: #333; min-height: 200px;
-    white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; word-wrap: break-word;
-}
+.article-content-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); font-size: 1.1em; line-height: 1.8; color: #333; min-height: 200px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; word-wrap: break-word; }
 .difficulty-indicator.beginner { background: #28a745; }
 .difficulty-indicator.intermediate { background: #ffc107; color: #333 !important; }
 .difficulty-indicator.advanced { background: #dc3545; }
 
-.btn-edit { padding: 10px 20px; background: #00adb5; color: white; border: 1px solid #00adb5; border-radius: 8px; text-decoration:none; font-weight:bold; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+.btn-edit { padding: 10px 20px; background: #00adb5; color: white; border: 1px solid #00adb5; border-radius: 8px; text-decoration:none; font-weight:bold; transition: 0.2s; display: flex; align-items: center; gap: 8px; cursor:pointer;}
 .btn-edit:hover { background: #008f96; color: white; }
-.btn-danger { padding: 10px 20px; background: white; border: 1px solid #dc3545; color: #dc3545; border-radius: 8px; text-decoration:none; font-weight:bold; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+.btn-danger { padding: 10px 20px; background: white; border: 1px solid #dc3545; color: #dc3545; border-radius: 8px; text-decoration:none; font-weight:bold; transition: 0.2s; display: flex; align-items: center; gap: 8px; cursor:pointer;}
 .btn-danger:hover { background: #dc3545; color: white; }
 
+/* 点赞按钮样式 */
+.btn-like { padding: 10px 20px; background: white; color: var(--danger); border: 2px solid var(--danger); border-radius: 8px; text-decoration:none; font-weight:bold; transition: 0.2s; display: flex; align-items: center; gap: 8px; cursor:pointer; font-size: 1em; }
+.btn-like:hover { background: #fff5f5; }
+.btn-like.liked { background: var(--danger); color: white; }
+.btn-like.liked:hover { background: #c82333; border-color: #c82333; }
+
 button[type="submit"]:hover { background: #008f96 !important; }
+.btn-like[type="submit"]:hover { background: #fff5f5 !important; }
+.btn-like.liked[type="submit"]:hover { background: #c82333 !important; }
 </style>
 
 <?php include 'includes/footer.php'; ?>

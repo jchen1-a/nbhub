@@ -1,8 +1,7 @@
 <?php
-// profile.php - 完整版 (支持头像与个人简介)
+// profile.php - 100% 完整版 (包含头像、Bio、发布的攻略，以及【我喜欢的攻略】)
 require_once 'config.php';
 
-// 获取要查看的用户ID，默认查看自己
 $user_id = isset($_GET['user']) ? intval($_GET['user']) : (is_logged_in() ? $_SESSION['user_id'] : null);
 
 if (!$user_id) {
@@ -13,7 +12,7 @@ if (!$user_id) {
 try {
     $pdo = db_connect();
     
-    // 获取用户信息及统计 (包含 avatar, bio, gender)
+    // 获取用户信息及基础统计
     $stmt = $pdo->prepare("
         SELECT id, username, email, country, avatar, bio, gender, created_at,
                (SELECT COUNT(*) FROM articles WHERE user_id = users.id AND is_published = 1) as guide_count,
@@ -28,16 +27,28 @@ try {
         die("Usuario no encontrado.");
     }
 
-    // 获取最近发布的攻略
+    // 获取发布的攻略
     $guides_stmt = $pdo->prepare("SELECT id, title, views, created_at FROM articles WHERE user_id = ? AND is_published = 1 ORDER BY created_at DESC LIMIT 5");
     $guides_stmt->execute([$user_id]);
     $recent_guides = $guides_stmt->fetchAll();
+
+    // 获取点赞的攻略 (新功能)
+    $liked_stmt = $pdo->prepare("
+        SELECT a.id, a.title, a.views, a.created_at, u.username as author_name 
+        FROM articles a 
+        JOIN article_likes al ON a.id = al.article_id 
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE al.user_id = ? AND a.is_published = 1
+        ORDER BY al.created_at DESC 
+        LIMIT 5
+    ");
+    $liked_stmt->execute([$user_id]);
+    $liked_guides = $liked_stmt->fetchAll();
 
 } catch (Exception $e) {
     die("Error: " . $e->getMessage());
 }
 
-// 检查是否是当前登录用户本人的主页
 $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
 ?>
 <?php include 'includes/header.php'; ?>
@@ -53,7 +64,7 @@ $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
                 
                 <div class="profile-avatar" style="text-align: center; margin-bottom: 20px;">
                     <?php if (!empty($profile_user['avatar'])): ?>
-                        <img src="<?php echo htmlspecialchars($profile_user['avatar']); ?>" alt="Avatar" style="width: 130px; height: 130px; border-radius: 50%; object-fit: cover; border: 4px solid #00adb5; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        <img src="<?php echo htmlspecialchars($profile_user['avatar']); ?>" alt="Avatar" style="width: 130px; height: 130px; border-radius: 50%; object-fit: cover; border: 4px solid var(--accent); box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
                     <?php else: ?>
                         <i class="fas fa-user-circle" style="font-size: 130px; color: #ccc;"></i>
                     <?php endif; ?>
@@ -74,7 +85,7 @@ $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
                     <?php endif; ?>
                     
                     <?php if(!empty($profile_user['bio'])): ?>
-                        <div style="margin-top: 15px; font-style: italic; color: #555; font-size: 0.95em; line-height: 1.5; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 3px solid #00adb5; text-align: left;">
+                        <div style="margin-top: 15px; font-style: italic; color: #555; font-size: 0.95em; line-height: 1.5; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 3px solid var(--accent); text-align: left; word-break: break-word; overflow-wrap: anywhere;">
                             "<?php echo nl2br(htmlspecialchars($profile_user['bio'])); ?>"
                         </div>
                     <?php endif; ?>
@@ -102,9 +113,9 @@ $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
         </aside>
 
         <main class="dashboard-content">
-            <div class="card">
+            <div class="card" style="margin-bottom: 30px;">
                 <div class="card-header">
-                    <h3><i class="fas fa-scroll"></i> Guías Publicadas por <?php echo htmlspecialchars($profile_user['username']); ?></h3>
+                    <h3 style="margin:0;"><i class="fas fa-scroll"></i> Guías Publicadas</h3>
                 </div>
                 <div class="card-body">
                     <?php if ($recent_guides): ?>
@@ -120,15 +131,47 @@ $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
                                     <small style="color:#888;"><i class="far fa-clock"></i> <?php echo date('d/m/Y', strtotime($g['created_at'])); ?></small>
                                 </div>
                                 <div class="article-meta" style="background: #f8f9fa; padding: 5px 12px; border-radius: 20px;">
-                                    <span style="font-weight:bold; color:#00adb5;"><i class="fas fa-eye"></i> <?php echo $g['views']; ?></span>
+                                    <span style="font-weight:bold; color:var(--accent);"><i class="fas fa-eye"></i> <?php echo $g['views']; ?></span>
                                 </div>
                             </div>
                         <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <div style="text-align:center; padding:50px 20px; color:#666;">
-                            <i class="fas fa-folder-open" style="font-size:3.5em; margin-bottom:15px; display:block; color:#ddd;"></i>
-                            <p style="font-size: 1.1em;">Este usuario aún no ha publicado guías.</p>
+                        <div style="text-align:center; padding:30px 20px; color:#666;">
+                            <i class="fas fa-folder-open" style="font-size:3em; margin-bottom:15px; display:block; color:#ddd;"></i>
+                            <p>Este usuario aún no ha publicado guías.</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 style="margin:0; color: var(--danger);"><i class="fas fa-heart"></i> Guías que le gustan</h3>
+                </div>
+                <div class="card-body">
+                    <?php if ($liked_guides): ?>
+                        <div class="article-list">
+                        <?php foreach ($liked_guides as $g): ?>
+                            <div class="article-item" style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee; transition: background 0.2s;">
+                                <div class="art-info">
+                                    <h4 style="margin:0 0 5px 0;">
+                                        <a href="article.php?id=<?php echo $g['id']; ?>" style="color:#333; text-decoration:none; font-weight:bold; font-size:1.1em;">
+                                            <?php echo htmlspecialchars($g['title']); ?>
+                                        </a>
+                                    </h4>
+                                    <small style="color:#888;">Por <span style="color:var(--accent);"><?php echo htmlspecialchars($g['author_name']); ?></span></small>
+                                </div>
+                                <div class="article-meta" style="background: #fff5f5; padding: 5px 12px; border-radius: 20px;">
+                                    <span style="font-weight:bold; color:var(--danger);"><i class="fas fa-heart"></i> Liked</span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div style="text-align:center; padding:30px 20px; color:#666;">
+                            <i class="far fa-heart" style="font-size:3em; margin-bottom:15px; display:block; color:#ddd;"></i>
+                            <p>Aún no ha dado "Me gusta" a ninguna guía.</p>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -138,17 +181,18 @@ $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
 </div>
 
 <style>
-/* Dashboard & Profile 样式 */
 .dashboard-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .dashboard-header { margin-bottom: 30px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
-.dashboard-header h1 { color: var(--primary); }
+.dashboard-header h1 { color: var(--primary); margin: 0; }
 .dashboard-grid { display: grid; grid-template-columns: 320px 1fr; gap: 30px; }
-.user-profile-card, .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.06); }
+.user-profile-card, .card { background: white; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.06); overflow: hidden; }
+.user-profile-card { padding: 30px; }
+.card-header { background: #fafafa; padding: 15px 20px; border-bottom: 1px solid #eee; }
+.card-body { padding: 20px; }
 .profile-stats { display: flex; gap: 15px; border-top: 1px solid #eee; padding-top: 20px; }
 .stat-item { flex: 1; text-align: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
-.stat-number { display: block; font-size: 1.6em; font-weight: bold; color: var(--accent); }
-.stat-label { font-size: 0.9em; color: #666; text-transform: uppercase; letter-spacing: 1px;}
-.card-header { border-bottom: 2px solid #f8f9fa; padding-bottom: 15px; margin-bottom: 20px; color: var(--primary); }
+.stat-number { display: block; font-size: 1.6em; font-weight: bold; color: var(--accent); line-height: 1; margin-bottom: 5px; }
+.stat-label { font-size: 0.85em; color: #666; text-transform: uppercase; font-weight: bold; }
 .article-item:hover { background: #f8f9fa; border-radius: 8px; }
 
 @media (max-width: 768px) {
