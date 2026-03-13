@@ -1,5 +1,5 @@
 <?php
-// login.php - 100% 完整版 (终极兼容版：兼容明文/MD5密码，并补全所有Session变量)
+// login.php - 100% 完整版 (精准修复：匹配 password_hash 字段)
 require_once 'config.php';
 
 if (is_logged_in()) {
@@ -26,24 +26,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user) {
                 $login_success = false;
+                $db_pass = $user['password_hash']; // 【关键修复】：使用 password_hash 字段
 
                 // 1. 标准安全验证 (新注册用户或刚重置密码的用户)
-                if (password_verify($password, $user['password'])) {
+                if (password_verify($password, $db_pass)) {
                     $login_success = true;
                 } 
                 // 2. 兼容旧版 MD5 加密
-                elseif (md5($password) === $user['password']) {
+                elseif (md5($password) === $db_pass) {
                     $login_success = true;
                     // 无缝自动升级为更安全的哈希算法
                     $new_hash = password_hash($password, PASSWORD_DEFAULT);
-                    $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
+                    $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
                 } 
                 // 3. 兼容最初期的明文密码
-                elseif ($password === $user['password']) {
+                elseif ($password === $db_pass) {
                     $login_success = true;
                     // 无缝自动升级为更安全的哈希算法
                     $new_hash = password_hash($password, PASSWORD_DEFAULT);
-                    $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
+                    $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
                 }
 
                 if ($login_success) {
