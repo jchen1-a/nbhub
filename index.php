@@ -1,5 +1,5 @@
 <?php
-// index.php - 100% 完整版 (复刻原图：苍云灰底色 + 彼岸花猩红 + 狂草毛笔标题)
+// index.php - 100% 完整版 (引入真实封面图背景与官方水墨图片Logo)
 require_once 'config.php';
 
 $stats = ['users' => 0, 'guides' => 0, 'posts' => 0];
@@ -39,8 +39,12 @@ try {
 
 <div class="hero-section">
     <div class="hero-content container">
-        <h1 class="brush-font" style="font-size: 5em; margin: 0 0 10px 0; color: #111; text-shadow: 3px 3px 0px #fff;">NARAKA HUB</h1>
-        <p style="font-family: 'Cinzel', serif; font-size: 1.4em; color: #333; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Tu centro de información definitivo: Sangre, Acero y Honor.</p>
+        
+        <img src="assets/logo.png" alt="Naraka Hub Logo Oficial" class="hero-image-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <h1 class="brush-font fallback-title" style="display:none; font-size: 5em; margin: 0 0 10px 0; color: #fff; text-shadow: 3px 3px 0px var(--accent);">NARAKA HUB</h1>
+        
+        <p style="font-family: 'Cinzel', serif; font-size: 1.4em; color: #fff; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; text-shadow: 1px 1px 5px rgba(0,0,0,0.8); margin-top: 20px;">Tu centro de información definitivo: Sangre, Acero y Honor.</p>
+        
         <div class="hero-buttons" style="margin-top: 40px;">
             <a href="wiki.php" class="btn-hero btn-hero-primary"><i class="fas fa-book-open"></i> Explorar Wiki</a>
             <a href="guides.php" class="btn-hero btn-hero-secondary"><i class="fas fa-graduation-cap"></i> Ver Guías</a>
@@ -146,19 +150,35 @@ try {
 
 <style>
 /* ================= 首页专属水墨武林精美 CSS ================= */
-/* 完美复刻图片的背景：从左上角的苍灰云天，渐变到右下角的浓重血红（彼岸花色） */
+/* 引入本地封面图，并加上半透明水墨到猩红的滤镜，确保文字永远清晰 */
 .hero-section { 
-    background: linear-gradient(135deg, #eef0f2 0%, #d5d7db 50%, #8a0b0b 100%); 
+    background: linear-gradient(135deg, rgba(10, 10, 12, 0.6) 0%, rgba(201, 20, 20, 0.5) 100%), url('assets/cover.jpg') no-repeat center center; 
+    background-size: cover;
     padding: 100px 20px 140px 20px; 
     text-align: center; 
     border-bottom: 5px solid var(--primary); 
     position: relative; 
 }
+
+/* 官方图片 Logo 的样式 */
+.hero-image-logo {
+    max-width: 100%;
+    height: auto;
+    max-height: 180px; /* 限制图片最大高度，防止撑爆屏幕 */
+    margin: 0 auto;
+    display: block;
+    filter: drop-shadow(0px 5px 15px rgba(0,0,0,0.8)); /* 加上酷炫的阴影让它更立体 */
+    transition: transform 0.3s;
+}
+.hero-image-logo:hover {
+    transform: scale(1.05); /* 鼠标放上去微微放大 */
+}
+
 .hero-buttons { display: flex; gap: 20px; justify-content: center; }
 .btn-hero { padding: 15px 35px; font-size: 1.1em; font-weight: bold; text-decoration: none; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; border: none; text-transform: uppercase; font-family: 'Cinzel', serif; letter-spacing: 1px;}
-.btn-hero-primary { background: var(--primary); color: white; box-shadow: 0 6px 15px rgba(0,0,0,0.3); border-radius: 4px; }
-.btn-hero-primary:hover { background: #000; color: var(--accent); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
-.btn-hero-secondary { background: white; color: var(--accent); border: 2px solid var(--accent); border-radius: 4px; }
+.btn-hero-primary { background: var(--primary); color: white; box-shadow: 0 6px 15px rgba(0,0,0,0.5); border-radius: 4px; border: 1px solid #333; }
+.btn-hero-primary:hover { background: #000; color: var(--accent); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.7); border-color: var(--accent); }
+.btn-hero-secondary { background: rgba(0,0,0,0.6); color: white; border: 2px solid var(--accent); border-radius: 4px; backdrop-filter: blur(5px); }
 .btn-hero-secondary:hover { background: var(--accent); color: white; transform: translateY(-3px); }
 
 /* 统计条 (深色墨砚背景) */
@@ -191,7 +211,7 @@ try {
 .category-badge { background: #f5f5f5; color: #444; }
 
 @media (max-width: 768px) {
-    .hero-content h1 { font-size: 3.5em; }
+    .hero-image-logo { max-height: 100px; }
     .hero-buttons { flex-direction: column; gap: 15px; }
     .btn-hero { width: 100%; }
     .container { margin-top: 20px; }
