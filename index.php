@@ -1,5 +1,5 @@
 <?php
-// index.php - 100% 完整版 (引入真实封面图背景与官方水墨图片Logo)
+// index.php - 100% 完整版 (完美修复封面图长宽比，防止被裁剪，完美居中 Logo)
 require_once 'config.php';
 
 $stats = ['users' => 0, 'guides' => 0, 'posts' => 0];
@@ -38,21 +38,21 @@ try {
 <?php include 'includes/header.php'; ?>
 
 <div class="hero-section">
-    <div class="hero-content container">
+    <div class="hero-content">
         
         <img src="assets/logo.png" alt="Naraka Hub Logo Oficial" class="hero-image-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
         <h1 class="brush-font fallback-title" style="display:none; font-size: 5em; margin: 0 0 10px 0; color: #fff; text-shadow: 3px 3px 0px var(--accent);">NARAKA HUB</h1>
         
-        <p style="font-family: 'Cinzel', serif; font-size: 1.4em; color: #fff; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; text-shadow: 1px 1px 5px rgba(0,0,0,0.8); margin-top: 20px;">Tu centro de información definitivo: Sangre, Acero y Honor.</p>
+        <p class="hero-subtitle">Tu centro de información definitivo: Sangre, Acero y Honor.</p>
         
-        <div class="hero-buttons" style="margin-top: 40px;">
+        <div class="hero-buttons">
             <a href="wiki.php" class="btn-hero btn-hero-primary"><i class="fas fa-book-open"></i> Explorar Wiki</a>
             <a href="guides.php" class="btn-hero btn-hero-secondary"><i class="fas fa-graduation-cap"></i> Ver Guías</a>
         </div>
     </div>
 </div>
 
-<div class="container" style="max-width: 1200px; margin: -50px auto 50px auto; position: relative; z-index: 10;">
+<div class="container" style="max-width: 1200px; margin: -60px auto 50px auto; position: relative; z-index: 10;">
     
     <div class="stats-banner" style="margin-bottom: 40px;">
         <div class="stat-block">
@@ -150,39 +150,69 @@ try {
 
 <style>
 /* ================= 首页专属水墨武林精美 CSS ================= */
-/* 引入本地封面图，并加上半透明水墨到猩红的滤镜，确保文字永远清晰 */
+
+/* 核心修复：移除固定的 padding，改用 aspect-ratio 和 Flexbox 让容器完美贴合原图比例 */
 .hero-section { 
-    background: linear-gradient(135deg, rgba(10, 10, 12, 0.6) 0%, rgba(201, 20, 20, 0.5) 100%), url('assets/cover.jpg') no-repeat center center; 
+    background: linear-gradient(135deg, rgba(10, 10, 12, 0.4) 0%, rgba(201, 20, 20, 0.3) 100%), url('assets/cover.jpg') no-repeat center center; 
     background-size: cover;
-    padding: 100px 20px 140px 20px; 
+    width: 100%;
+    /* 强制比例：16:7 是非常适合网页横幅的黄金比例，能大幅减少上下裁剪 */
+    aspect-ratio: 16 / 7; 
+    min-height: 500px;
+    max-height: 80vh; /* 防止在大显示器上过度拉伸占据整个屏幕 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center; 
     border-bottom: 5px solid var(--primary); 
     position: relative; 
+    padding: 20px;
+    box-shadow: inset 0 -50px 100px -20px rgba(0,0,0,0.8); /* 底部添加一点黑影，让下方的统计条过渡更自然 */
+}
+
+.hero-content {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    /* 整体内容微微向上偏移，避开底部统计条带来的视觉压迫 */
+    transform: translateY(-30px);
 }
 
 /* 官方图片 Logo 的样式 */
 .hero-image-logo {
     max-width: 100%;
     height: auto;
-    max-height: 180px; /* 限制图片最大高度，防止撑爆屏幕 */
+    max-height: 220px; /* 稍微放大一点Logo，更有冲击力 */
     margin: 0 auto;
     display: block;
-    filter: drop-shadow(0px 5px 15px rgba(0,0,0,0.8)); /* 加上酷炫的阴影让它更立体 */
+    filter: drop-shadow(0px 8px 15px rgba(0,0,0,0.8)); /* 立体阴影效果 */
     transition: transform 0.3s;
 }
 .hero-image-logo:hover {
-    transform: scale(1.05); /* 鼠标放上去微微放大 */
+    transform: scale(1.03); /* 鼠标悬停微微放大互动 */
+}
+
+.hero-subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 1.4em;
+    color: #fff;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.9);
+    margin: 20px 0 40px 0;
 }
 
 .hero-buttons { display: flex; gap: 20px; justify-content: center; }
 .btn-hero { padding: 15px 35px; font-size: 1.1em; font-weight: bold; text-decoration: none; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; border: none; text-transform: uppercase; font-family: 'Cinzel', serif; letter-spacing: 1px;}
 .btn-hero-primary { background: var(--primary); color: white; box-shadow: 0 6px 15px rgba(0,0,0,0.5); border-radius: 4px; border: 1px solid #333; }
 .btn-hero-primary:hover { background: #000; color: var(--accent); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.7); border-color: var(--accent); }
-.btn-hero-secondary { background: rgba(0,0,0,0.6); color: white; border: 2px solid var(--accent); border-radius: 4px; backdrop-filter: blur(5px); }
-.btn-hero-secondary:hover { background: var(--accent); color: white; transform: translateY(-3px); }
+.btn-hero-secondary { background: rgba(0,0,0,0.5); color: white; border: 2px solid var(--accent); border-radius: 4px; backdrop-filter: blur(5px); }
+.btn-hero-secondary:hover { background: var(--accent); color: white; transform: translateY(-3px); box-shadow: 0 6px 15px rgba(204, 0, 0, 0.4); }
 
 /* 统计条 (深色墨砚背景) */
-.stats-banner { background: var(--primary); border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 2px solid #222; padding: 40px; }
+.stats-banner { background: var(--primary); border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 2px solid #222; padding: 35px 20px; }
 .stat-block i { font-size: 2.5em; color: var(--accent); margin-bottom: 15px; display: block; }
 .stat-num { font-size: 3em; font-family: 'Cinzel', serif; font-weight: 800; display: block; line-height: 1; margin-bottom: 8px; color: white; }
 .stat-text { color: #888; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; font-weight: bold; }
@@ -211,7 +241,8 @@ try {
 .category-badge { background: #f5f5f5; color: #444; }
 
 @media (max-width: 768px) {
-    .hero-image-logo { max-height: 100px; }
+    .hero-section { aspect-ratio: auto; min-height: 60vh; }
+    .hero-image-logo { max-height: 120px; }
     .hero-buttons { flex-direction: column; gap: 15px; }
     .btn-hero { width: 100%; }
     .container { margin-top: 20px; }
