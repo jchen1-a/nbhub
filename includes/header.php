@@ -1,5 +1,5 @@
 <?php
-// includes/header.php - 100% 完整版 (已完美修复下拉菜单鼠标离开消失的Bug)
+// includes/header.php - 100% 完整版 (完美修复下拉菜单鼠标离开消失的Bug，并引入水墨武林黑红白配色)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -36,13 +36,14 @@ if (isset($_SESSION['user_id'])) {
     <style>
         /* ================= 核心全局排版 CSS (请勿删除) ================= */
         :root {
-            --primary: #1a1a2e;
-            --accent: #00adb5;
-            --text: #333;
-            --bg: #f4f4f4;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
+            /* 主配色方案：水墨武林黑红白 */
+            --primary: #1a1a1a;  /* 水墨深黑，接近纯黑 */
+            --accent: #b71c1c;   /* 强调红，深红色，武林气息 */
+            --text: #212121;     /* 水墨黑，偏灰黑 */
+            --bg: #fafafa;       /* 宣纸白，偏灰白 */
+            --danger: #d32f2f;   /* 危险红，比强调红稍亮 */
+            --success: #388e3c;  /* 成功绿，比以前的蓝绿色稍暗 */
+            --warning: #ffc107;  /* 警告黄，保持金色高亮 */
         }
         
         * { box-sizing: border-box; }
@@ -51,16 +52,16 @@ if (isset($_SESSION['user_id'])) {
         /* 全局容器与布局 */
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         a { text-decoration: none; color: var(--accent); transition: 0.3s; }
-        a:hover { color: #008f96; }
+        a:hover { color: #d32f2f; }
         
         /* 全局卡片样式 */
-        .card, .wiki-card, .post-card { background: white; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); margin-bottom: 25px; overflow: hidden; }
+        .card, .wiki-card, .post-card { background: white; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); margin-bottom: 25px; overflow: hidden; border: 1px solid rgba(0,0,0,0.03); }
         .card-header { padding: 15px 20px; border-bottom: 1px solid #eee; background: #fafafa; margin: 0; }
         .card-body { padding: 20px; }
         
         /* 全局按钮样式 */
-        .btn, .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; text-decoration: none; }
-        .btn:hover, .btn-primary:hover { background: #008f96; color: white; }
+        .btn, .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; text-decoration: none; font-size: 1em; }
+        .btn:hover, .btn-primary:hover { background: #d32f2f; color: white; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(183,28,28,0.3); }
         .btn-outline { background: white; color: var(--accent); border: 2px solid var(--accent); }
         .btn-outline:hover { background: var(--accent); color: white; }
 
@@ -97,8 +98,8 @@ if (isset($_SESSION['user_id'])) {
         
         /* 闪存消息提示框 */
         .alert { padding: 15px; margin-bottom: 20px; border-radius: 6px; }
-        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-success { background: #e8f5e9; color: #388e3c; border: 1px solid #c8e6c9; }
+        .alert-error { background: #ffebee; color: #d32f2f; border: 1px solid #ffcdd2; }
     </style>
 </head>
 <body>
@@ -119,7 +120,7 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                     <div class="dropdown-content">
                         <?php if ($is_admin): ?>
-                            <a href="admin.php" style="background: #fffdf5; color: #d39e00; font-weight: bold; border-bottom: 2px solid #ffebba;">
+                            <a href="admin.php" style="background: rgba(255, 193, 7, 0.1); color: #ffeb3b; font-weight: bold; border-bottom: 2px solid #ffebba;">
                                 <i class="fas fa-shield-alt"></i> Panel de Admin
                             </a>
                         <?php endif; ?>
