@@ -1,5 +1,5 @@
 <?php
-// index.php - 100% 完整版 (洗净浑浊感，采用纯净的黑墨背景 + 曼珠沙华红点缀)
+// index.php - 100% 完整版 (复刻原图：苍云灰底色 + 彼岸花猩红 + 狂草毛笔标题)
 require_once 'config.php';
 
 $stats = ['users' => 0, 'guides' => 0, 'posts' => 0];
@@ -9,12 +9,10 @@ $active_posts = [];
 try {
     $pdo = db_connect();
     
-    // 获取全站统计数据
     $stats['users'] = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
     $stats['guides'] = $pdo->query("SELECT COUNT(*) FROM articles WHERE is_published = 1")->fetchColumn();
     $stats['posts'] = $pdo->query("SELECT COUNT(*) FROM forum_posts")->fetchColumn();
     
-    // 获取最新发布的4篇攻略
     $recent_guides = $pdo->query("
         SELECT a.id, a.title, a.views, a.difficulty, a.created_at, u.username 
         FROM articles a 
@@ -24,7 +22,6 @@ try {
         LIMIT 4
     ")->fetchAll();
     
-    // 获取最活跃的4个论坛帖子
     $active_posts = $pdo->query("
         SELECT p.id, p.title, p.views, p.category, u.username,
                (SELECT COUNT(*) FROM forum_replies WHERE post_id = p.id) as reply_count
@@ -42,11 +39,11 @@ try {
 
 <div class="hero-section">
     <div class="hero-content container">
-        <h1>Portal de Naraka: Bladepoint</h1>
-        <p>Tu centro de información definitivo: wiki, guías detalladas y una comunidad activa.</p>
-        <div class="hero-buttons">
+        <h1 class="brush-font" style="font-size: 5em; margin: 0 0 10px 0; color: #111; text-shadow: 3px 3px 0px #fff;">NARAKA HUB</h1>
+        <p style="font-family: 'Cinzel', serif; font-size: 1.4em; color: #333; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Tu centro de información definitivo: Sangre, Acero y Honor.</p>
+        <div class="hero-buttons" style="margin-top: 40px;">
             <a href="wiki.php" class="btn-hero btn-hero-primary"><i class="fas fa-book-open"></i> Explorar Wiki</a>
-            <a href="guides.php" class="btn-hero btn-hero-primary"><i class="fas fa-graduation-cap"></i> Ver Estado</a>
+            <a href="guides.php" class="btn-hero btn-hero-secondary"><i class="fas fa-graduation-cap"></i> Ver Guías</a>
         </div>
     </div>
 </div>
@@ -57,7 +54,7 @@ try {
         <div class="stat-block">
             <i class="fas fa-user-friends"></i>
             <span class="stat-num"><?php echo $stats['users']; ?></span>
-            <span class="stat-text">Jugadores Registrados</span>
+            <span class="stat-text">Jugadores</span>
         </div>
         <div class="stat-block">
             <i class="fas fa-scroll"></i>
@@ -97,11 +94,11 @@ try {
     <div class="content-showcase" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 40px;">
         
         <div class="showcase-card card">
-            <div class="showcase-header card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
-                <h2 style="margin: 0; font-size: 1.4em; color: var(--primary); display: flex; align-items: center; gap: 10px;">
+            <div class="showcase-header card-header" style="display: flex; justify-content: space-between; align-items: center; background: white;">
+                <h2 style="margin: 0; font-size: 1.4em; display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-scroll" style="color: var(--accent);"></i> Últimas Guías
                 </h2>
-                <a href="guides.php" class="btn-sm btn-outline">Ver todas</a>
+                <a href="guides.php" class="btn-sm btn-outline" style="border-radius:4px; padding: 5px 10px;">Ver todas</a>
             </div>
             <div class="showcase-list card-body" style="padding: 0;">
                 <?php if (empty($recent_guides)): ?>
@@ -110,7 +107,7 @@ try {
                     <?php foreach($recent_guides as $guide): ?>
                         <a href="article.php?id=<?php echo $guide['id']; ?>" class="list-item" style="border-bottom: 1px solid #f0f0f0;">
                             <div class="item-main">
-                                <h4><?php echo htmlspecialchars($guide['title']); ?></h4>
+                                <h4 style="font-family: 'Segoe UI', sans-serif;"><?php echo htmlspecialchars($guide['title']); ?></h4>
                                 <span class="item-meta">Por <?php echo htmlspecialchars($guide['username']); ?> | <i class="fas fa-eye"></i> <?php echo $guide['views']; ?></span>
                             </div>
                             <span class="diff-badge <?php echo $guide['difficulty']; ?>"><?php echo ucfirst($guide['difficulty']); ?></span>
@@ -121,11 +118,11 @@ try {
         </div>
 
         <div class="showcase-card card">
-            <div class="showcase-header card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none;">
-                <h2 style="margin: 0; font-size: 1.4em; color: var(--primary); display: flex; align-items: center; gap: 10px;">
+            <div class="showcase-header card-header" style="display: flex; justify-content: space-between; align-items: center; background: white;">
+                <h2 style="margin: 0; font-size: 1.4em; display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-comments" style="color: var(--accent);"></i> Temas Activos
                 </h2>
-                <a href="forum.php" class="btn-sm btn-outline">Ir al Foro</a>
+                <a href="forum.php" class="btn-sm btn-outline" style="border-radius:4px; padding: 5px 10px;">Ir al Foro</a>
             </div>
             <div class="showcase-list card-body" style="padding: 0;">
                 <?php if (empty($active_posts)): ?>
@@ -134,7 +131,7 @@ try {
                     <?php foreach($active_posts as $post): ?>
                         <a href="view-post.php?id=<?php echo $post['id']; ?>" class="list-item" style="border-bottom: 1px solid #f0f0f0;">
                             <div class="item-main">
-                                <h4><?php echo htmlspecialchars($post['title']); ?></h4>
+                                <h4 style="font-family: 'Segoe UI', sans-serif;"><?php echo htmlspecialchars($post['title']); ?></h4>
                                 <span class="item-meta">Por <?php echo htmlspecialchars($post['username']); ?> | <i class="fas fa-reply"></i> <?php echo $post['reply_count']; ?> resp.</span>
                             </div>
                             <span class="category-badge"><?php echo ucfirst($post['category']); ?></span>
@@ -149,46 +146,52 @@ try {
 
 <style>
 /* ================= 首页专属水墨武林精美 CSS ================= */
-/* 纯黑墨色晕染背景，彻底去除浑浊的红色混合 */
-.hero-section { background-color: var(--primary); background-image: radial-gradient(circle at 50% 0%, #2a2a2a 0%, #111111 80%); color: white; padding: 100px 20px 140px 20px; text-align: center; border-bottom: 4px solid var(--accent); position: relative; }
-.hero-content h1 { font-size: 3.8em; margin: 0 0 15px 0; color: white; text-shadow: 0 4px 15px rgba(0,0,0,0.8); font-weight: 800; letter-spacing: 1px; }
-.hero-content p { font-size: 1.25em; line-height: 1.6; color: #ccc; margin-bottom: 40px; }
+/* 完美复刻图片的背景：从左上角的苍灰云天，渐变到右下角的浓重血红（彼岸花色） */
+.hero-section { 
+    background: linear-gradient(135deg, #eef0f2 0%, #d5d7db 50%, #8a0b0b 100%); 
+    padding: 100px 20px 140px 20px; 
+    text-align: center; 
+    border-bottom: 5px solid var(--primary); 
+    position: relative; 
+}
 .hero-buttons { display: flex; gap: 20px; justify-content: center; }
-.btn-hero { padding: 15px 35px; border-radius: 35px; font-size: 1.1em; font-weight: bold; text-decoration: none; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; border: none; }
-.btn-hero-primary { background: var(--accent); color: white; box-shadow: 0 4px 15px rgba(204,0,0,0.4); }
-.btn-hero-primary:hover { background: #e60000; color: white; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(204,0,0,0.6); }
+.btn-hero { padding: 15px 35px; font-size: 1.1em; font-weight: bold; text-decoration: none; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; border: none; text-transform: uppercase; font-family: 'Cinzel', serif; letter-spacing: 1px;}
+.btn-hero-primary { background: var(--primary); color: white; box-shadow: 0 6px 15px rgba(0,0,0,0.3); border-radius: 4px; }
+.btn-hero-primary:hover { background: #000; color: var(--accent); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+.btn-hero-secondary { background: white; color: var(--accent); border: 2px solid var(--accent); border-radius: 4px; }
+.btn-hero-secondary:hover { background: var(--accent); color: white; transform: translateY(-3px); }
 
 /* 统计条 (深色墨砚背景) */
-.stats-banner { background: #1a1a1a; border-radius: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #333; padding: 40px; }
+.stats-banner { background: var(--primary); border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 2px solid #222; padding: 40px; }
 .stat-block i { font-size: 2.5em; color: var(--accent); margin-bottom: 15px; display: block; }
-.stat-num { font-size: 2.8em; font-weight: bold; display: block; line-height: 1; margin-bottom: 8px; color: white; }
+.stat-num { font-size: 3em; font-family: 'Cinzel', serif; font-weight: 800; display: block; line-height: 1; margin-bottom: 8px; color: white; }
 .stat-text { color: #888; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; font-weight: bold; }
 
 /* 三大功能卡片 */
 .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-.feature-card { background: white; padding: 40px 30px; border-radius: 12px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: 0.3s; border-top: 4px solid #111; }
-.feature-card:hover { transform: translateY(-8px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); border-top-color: var(--accent); }
-.feature-icon { font-size: 3em; color: #111; margin-bottom: 25px; transition: 0.3s; }
+.feature-card { background: white; padding: 40px 30px; border-radius: 8px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.08); transition: 0.3s; border-top: 4px solid var(--primary); border-bottom: 1px solid #ddd; border-left: 1px solid #ddd; border-right: 1px solid #ddd; }
+.feature-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.12); border-top-color: var(--accent); }
+.feature-icon { font-size: 3.5em; color: var(--primary); margin-bottom: 25px; transition: 0.3s; }
 .feature-card:hover .feature-icon { color: var(--accent); transform: scale(1.1); }
-.feature-card h3 { font-size: 1.5em; color: var(--primary); margin: 0 0 15px 0; font-weight: bold; }
-.feature-card p { color: #666; margin-bottom: 30px; line-height: 1.6; }
-.feature-link { color: #111; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+.feature-card h3 { font-size: 1.6em; margin: 0 0 15px 0; }
+.feature-card p { color: #555; margin-bottom: 30px; line-height: 1.6; font-family: 'Segoe UI', sans-serif; }
+.feature-link { color: var(--primary); font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9em; }
 .feature-card:hover .feature-link { color: var(--accent); gap: 12px; }
 
-/* 最新攻略与热门讨论列表美化 */
-.list-item { display: flex; justify-content: space-between; align-items: center; padding: 18px 25px; text-decoration: none; transition: 0.2s; border-radius: 8px; }
-.list-item:hover { background: #fafafa; transform: translateX(5px); border-left: 3px solid var(--accent); }
-.list-item h4 { margin: 0 0 5px 0; color: var(--text); font-size: 1.15em; font-weight: bold; transition: 0.2s; }
+/* 列表项悬停效果 */
+.list-item { display: flex; justify-content: space-between; align-items: center; padding: 18px 25px; text-decoration: none; transition: 0.2s; background: white; }
+.list-item:hover { background: #fafafa; border-left: 4px solid var(--accent); padding-left: 21px; }
+.list-item h4 { margin: 0 0 5px 0; color: var(--text); font-size: 1.1em; font-weight: bold; transition: 0.2s; }
 .list-item:hover h4 { color: var(--accent); }
-.item-meta { font-size: 0.85em; color: #888; display: block; }
-.list-item .diff-badge, .list-item .category-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid #eee; }
+.item-meta { font-size: 0.85em; color: #888; display: block; font-family: 'Segoe UI', sans-serif;}
+.list-item .diff-badge, .list-item .category-badge { padding: 4px 10px; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid #ddd; font-family: 'Segoe UI', sans-serif;}
 .diff-badge.beginner { background: #f1f8e9; color: #33691e; border-color: #c5e1a5; }
-.diff-badge.intermediate { background: #fff8e1; color: #ff8f00; border-color: #ffe082; }
+.diff-badge.intermediate { background: #fff8e1; color: #f57f17; border-color: #ffe082; }
 .diff-badge.advanced { background: #ffebee; color: var(--accent); border-color: #ffcdd2; }
 .category-badge { background: #f5f5f5; color: #444; }
 
 @media (max-width: 768px) {
-    .hero-content h1 { font-size: 2.5em; }
+    .hero-content h1 { font-size: 3.5em; }
     .hero-buttons { flex-direction: column; gap: 15px; }
     .btn-hero { width: 100%; }
     .container { margin-top: 20px; }
