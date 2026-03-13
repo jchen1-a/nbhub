@@ -1,5 +1,5 @@
 <?php
-// includes/header.php - 完美恢复排版版 (包含管理员权限 & 全局CSS)
+// includes/header.php - 100% 完整版 (已完美修复下拉菜单鼠标离开消失的Bug)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -71,13 +71,26 @@ if (isset($_SESSION['user_id'])) {
         .nav-links a { color: white; text-decoration: none; font-weight: 500; transition: color 0.3s; display: flex; align-items: center; gap: 5px; }
         .nav-links a:hover { color: var(--accent); }
         
-        /* 用户下拉菜单样式 */
+        /* 用户下拉菜单样式 (已修复空隙Bug) */
         .user-menu { position: relative; display: inline-block; cursor: pointer; }
+        
+        /* 核心修复：创建一个透明的伪元素桥梁，填补按钮和菜单之间的物理空隙 */
+        .user-menu::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            height: 15px;
+            background: transparent;
+            z-index: 999;
+        }
+
         .user-menu-btn { display: flex; align-items: center; gap: 8px; color: white; background: rgba(255,255,255,0.1); padding: 8px 15px; border-radius: 20px; transition: background 0.3s; border: 1px solid transparent; }
         .user-menu-btn:hover { background: rgba(255,255,255,0.2); }
         .user-menu-btn.admin-glow { border-color: var(--warning); color: var(--warning); }
         
-        .dropdown-content { display: none; position: absolute; right: 0; background-color: white; min-width: 200px; box-shadow: 0px 8px 20px rgba(0,0,0,0.2); z-index: 1000; border-radius: 8px; overflow: hidden; margin-top: 10px; }
+        .dropdown-content { display: none; position: absolute; right: 0; top: calc(100% + 10px); background-color: white; min-width: 200px; box-shadow: 0px 8px 20px rgba(0,0,0,0.2); z-index: 1000; border-radius: 8px; overflow: hidden; }
         .dropdown-content a { color: var(--text); padding: 12px 16px; text-decoration: none; display: block; font-size: 0.95em; border-bottom: 1px solid #eee; transition: 0.2s; }
         .dropdown-content a:hover { background-color: #f8f9fa; color: var(--accent); padding-left: 20px; }
         .user-menu:hover .dropdown-content { display: block; }
