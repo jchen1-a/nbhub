@@ -1,5 +1,5 @@
 <?php
-// login.php - 100% 完整版 (包含忘记密码链接，水墨武林排版)
+// login.php - 100% 完整版 (终极兼容版：兼容明文/MD5密码，并补全所有Session变量)
 require_once 'config.php';
 
 if (is_logged_in()) {
@@ -24,14 +24,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$identifier, $identifier]);
             $user = $stmt->fetch();
 
-            if ($user && password_verify($password, $user['password'])) {
-                // 登录成功，设置会话变量
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['user_name'] = $user['username'];
-                $_SESSION['flash_message'] = "¡Bienvenido de nuevo, " . $user['username'] . "!";
-                
-                header("Location: dashboard.php");
-                exit;
+            if ($user) {
+                $login_success = false;
+
+                // 1. 标准安全验证 (新注册用户或刚重置密码的用户)
+                if (password_verify($password, $user['password'])) {
+                    $login_success = true;
+                } 
+                // 2. 兼容旧版 MD5 加密
+                elseif (md5($password) === $user['password']) {
+                    $login_success = true;
+                    // 无缝自动升级为更安全的哈希算法
+                    $new_hash = password_hash($password, PASSWORD_DEFAULT);
+                    $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
+                } 
+                // 3. 兼容最初期的明文密码
+                elseif ($password === $user['password']) {
+                    $login_success = true;
+                    // 无缝自动升级为更安全的哈希算法
+                    $new_hash = password_hash($password, PASSWORD_DEFAULT);
+                    $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
+                }
+
+                if ($login_success) {
+                    // 暴力补全所有可能用到的 Session 变量，绝对防止任何页面报错或踢人
+                    $_SESSION['user_id']   = $user['id'];
+                    $_SESSION['user_name'] = $user['username'];
+                    $_SESSION['username']  = $user['username'];
+                    $_SESSION['name']      = $user['username'];
+                    $_SESSION['user']      = $user; // 整个数组存入，兼容性拉满
+                    
+                    $_SESSION['flash_message'] = "¡Bienvenido de nuevo, " . $user['username'] . "!";
+                    
+                    header("Location: dashboard.php");
+                    exit;
+                } else {
+                    $errors['general'] = "Credenciales incorrectas.";
+                }
             } else {
                 $errors['general'] = "Credenciales incorrectas.";
             }
