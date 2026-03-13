@@ -1,7 +1,8 @@
 <?php
-// profile.php - 100% 完整版 (包含头像、Bio、发布的攻略，以及【我喜欢的攻略】)
+// profile.php - 100% 完整版 (包含头像、Bio、发布攻略、点赞攻略，以及全新的【关注系统】)
 require_once 'config.php';
 
+// 获取要查看的用户ID
 $user_id = isset($_GET['user']) ? intval($_GET['user']) : (is_logged_in() ? $_SESSION['user_id'] : null);
 
 if (!$user_id) {
@@ -12,7 +13,7 @@ if (!$user_id) {
 try {
     $pdo = db_connect();
     
-    // 获取用户信息及基础统计
+    // 1. 获取用户信息及基础统计
     $stmt = $pdo->prepare("
         SELECT id, username, email, country, avatar, bio, gender, created_at,
                (SELECT COUNT(*) FROM articles WHERE user_id = users.id AND is_published = 1) as guide_count,
@@ -27,12 +28,52 @@ try {
         die("Usuario no encontrado.");
     }
 
-    // 获取发布的攻略
+    $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
+
+    // 2. 处理 关注/取消关注 的提交请求 (新功能)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_follow']) && is_logged_in() && !$is_own_profile) {
+        $check_follow = $pdo->prepare("SELECT 1 FROM user_followers WHERE follower_id = ? AND followed_id = ?");
+        $check_follow->execute([$_SESSION['user_id'], $profile_user['id']]);
+        
+        if ($check_follow->fetch()) {
+            // 如果已关注，则取消关注
+            $pdo->prepare("DELETE FROM user_followers WHERE follower_id = ? AND followed_id = ?")
+                ->execute([$_SESSION['user_id'], $profile_user['id']]);
+            $_SESSION['flash_message'] = "Has dejado de seguir a " . $profile_user['username'];
+        } else {
+            // 如果未关注，则添加关注
+            $pdo->prepare("INSERT IGNORE INTO user_followers (follower_id, followed_id, created_at) VALUES (?, ?, NOW())")
+                ->execute([$_SESSION['user_id'], $profile_user['id']]);
+            $_SESSION['flash_message'] = "Ahora sigues a " . $profile_user['username'];
+        }
+        // 重定向刷新状态
+        header("Location: profile.php?user=" . $profile_user['id']);
+        exit();
+    }
+
+    // 3. 获取粉丝数和关注数 (新功能)
+    $followers_count = $pdo->prepare("SELECT COUNT(*) FROM user_followers WHERE followed_id = ?");
+    $followers_count->execute([$profile_user['id']]);
+    $followers_count = $followers_count->fetchColumn();
+
+    $following_count = $pdo->prepare("SELECT COUNT(*) FROM user_followers WHERE follower_id = ?");
+    $following_count->execute([$profile_user['id']]);
+    $following_count = $following_count->fetchColumn();
+
+    // 检查当前登录用户是否已经关注了该主页用户
+    $is_following = false;
+    if (is_logged_in() && !$is_own_profile) {
+        $like_check_stmt = $pdo->prepare("SELECT 1 FROM user_followers WHERE follower_id = ? AND followed_id = ?");
+        $like_check_stmt->execute([$_SESSION['user_id'], $profile_user['id']]);
+        $is_following = (bool)$like_check_stmt->fetch();
+    }
+
+    // 4. 获取发布的攻略
     $guides_stmt = $pdo->prepare("SELECT id, title, views, created_at FROM articles WHERE user_id = ? AND is_published = 1 ORDER BY created_at DESC LIMIT 5");
-    $guides_stmt->execute([$user_id]);
+    $guides_stmt->execute([$profile_user['id']]);
     $recent_guides = $guides_stmt->fetchAll();
 
-    // 获取点赞的攻略 (新功能)
+    // 5. 获取点赞的攻略
     $liked_stmt = $pdo->prepare("
         SELECT a.id, a.title, a.views, a.created_at, u.username as author_name 
         FROM articles a 
@@ -42,14 +83,12 @@ try {
         ORDER BY al.created_at DESC 
         LIMIT 5
     ");
-    $liked_stmt->execute([$user_id]);
+    $liked_stmt->execute([$profile_user['id']]);
     $liked_guides = $liked_stmt->fetchAll();
 
 } catch (Exception $e) {
     die("Error: " . $e->getMessage());
 }
-
-$is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -92,19 +131,45 @@ $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
                     
                     <p style="margin-top: 15px; font-size: 0.85em; color: #999;"><i class="fas fa-calendar-alt"></i> Miembro desde: <?php echo date('d/m/Y', strtotime($profile_user['created_at'])); ?></p>
                     
-                    <?php if($is_own_profile): ?>
-                        <a href="edit-profile.php" class="btn-primary" style="margin-top: 20px; display: inline-block; width: 100%; padding: 10px; border-radius: 8px;">
-                            <i class="fas fa-edit"></i> Editar mi perfil
-                        </a>
-                    <?php endif; ?>
+                    <div style="margin-top: 20px;">
+                        <?php if($is_own_profile): ?>
+                            <a href="edit-profile.php" class="btn-primary" style="display: inline-block; width: 100%; padding: 10px; border-radius: 8px;">
+                                <i class="fas fa-edit"></i> Editar mi perfil
+                            </a>
+                        <?php else: ?>
+                            <?php if(is_logged_in()): ?>
+                                <form method="POST" style="margin: 0;">
+                                    <input type="hidden" name="toggle_follow" value="1">
+                                    <button type="submit" class="btn-primary" style="width: 100%; padding: 10px; border-radius: 8px; border: none; cursor: pointer; transition: 0.3s; background: <?php echo $is_following ? '#6c757d' : 'var(--accent)'; ?>;">
+                                        <i class="fas <?php echo $is_following ? 'fa-user-minus' : 'fa-user-plus'; ?>"></i> 
+                                        <?php echo $is_following ? 'Dejar de seguir' : 'Seguir Usuario'; ?>
+                                    </button>
+                                </form>
+                            <?php else: ?>
+                                <a href="login.php" class="btn-primary" style="display: inline-block; width: 100%; padding: 10px; border-radius: 8px; background: var(--accent);">
+                                    <i class="fas fa-user-plus"></i> Iniciar sesión para seguir
+                                </a>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
-                <div class="profile-stats" style="margin-top: 25px;">
-                    <div class="stat-item">
+                <div class="profile-stats" style="margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="stat-item" style="grid-column: span 2; display: flex; gap: 10px; padding: 0; background: transparent; border: none;">
+                        <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center;">
+                            <span class="stat-number"><?php echo $followers_count; ?></span>
+                            <span class="stat-label">Seguidores</span>
+                        </div>
+                        <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center;">
+                            <span class="stat-number"><?php echo $following_count; ?></span>
+                            <span class="stat-label">Siguiendo</span>
+                        </div>
+                    </div>
+                    <div class="stat-item" style="margin-top: 5px;">
                         <span class="stat-number"><?php echo $profile_user['guide_count']; ?></span>
                         <span class="stat-label">Guías</span>
                     </div>
-                    <div class="stat-item">
+                    <div class="stat-item" style="margin-top: 5px;">
                         <span class="stat-number"><?php echo $profile_user['post_count']; ?></span>
                         <span class="stat-label">Posts</span>
                     </div>
@@ -189,11 +254,13 @@ $is_own_profile = is_logged_in() && $_SESSION['user_id'] == $profile_user['id'];
 .user-profile-card { padding: 30px; }
 .card-header { background: #fafafa; padding: 15px 20px; border-bottom: 1px solid #eee; }
 .card-body { padding: 20px; }
-.profile-stats { display: flex; gap: 15px; border-top: 1px solid #eee; padding-top: 20px; }
-.stat-item { flex: 1; text-align: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+.profile-stats { border-top: 1px solid #eee; padding-top: 20px; }
+.stat-item { text-align: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
 .stat-number { display: block; font-size: 1.6em; font-weight: bold; color: var(--accent); line-height: 1; margin-bottom: 5px; }
 .stat-label { font-size: 0.85em; color: #666; text-transform: uppercase; font-weight: bold; }
 .article-item:hover { background: #f8f9fa; border-radius: 8px; }
+
+button[type="submit"]:hover { filter: brightness(0.9); }
 
 @media (max-width: 768px) {
     .dashboard-grid { grid-template-columns: 1fr; }
