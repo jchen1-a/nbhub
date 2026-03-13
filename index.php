@@ -1,5 +1,5 @@
 <?php
-// index.php - 100% 完整版 (引入水墨武林黑红白配色与渐变Hero横幅)
+// index.php - 100% 完整版 (洗净浑浊感，采用纯净的黑墨背景 + 曼珠沙华红点缀)
 require_once 'config.php';
 
 $stats = ['users' => 0, 'guides' => 0, 'posts' => 0];
@@ -53,7 +53,7 @@ try {
 
 <div class="container" style="max-width: 1200px; margin: -50px auto 50px auto; position: relative; z-index: 10;">
     
-    <div class="stats-banner" style="margin-bottom: 40px; border-top: none; border-bottom: 5px solid var(--accent); padding: 40px;">
+    <div class="stats-banner" style="margin-bottom: 40px;">
         <div class="stat-block">
             <i class="fas fa-user-friends"></i>
             <span class="stat-num"><?php echo $stats['users']; ?></span>
@@ -145,48 +145,47 @@ try {
         </div>
 
     </div>
-    
 </div>
 
 <style>
 /* ================= 首页专属水墨武林精美 CSS ================= */
-.hero-section { background-color: var(--primary); background-image: radial-gradient(circle at 70% 30%, rgba(183, 28, 28, 0.2) 0%, rgba(26, 26, 26, 0.95) 70%), radial-gradient(circle at 30% 70%, rgba(33, 33, 33, 0.95) 0%, rgba(26, 26, 26, 0.95) 70%); color: white; padding: 100px 20px 140px 20px; text-align: center; border-bottom: 10px solid var(--accent); position: relative; overflow: hidden; }
-.hero-section::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(circle, rgba(183,28,28,0.05) 1px, rgba(26,26,26,0) 1px); background-size: 20px 20px; opacity: 0.3; }
-.hero-content h1 { font-size: 3.5em; margin: 0 0 20px 0; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); font-weight: bold; }
-.hero-content p { font-size: 1.2em; line-height: 1.6; color: #bbb; margin-bottom: 35px; }
+/* 纯黑墨色晕染背景，彻底去除浑浊的红色混合 */
+.hero-section { background-color: var(--primary); background-image: radial-gradient(circle at 50% 0%, #2a2a2a 0%, #111111 80%); color: white; padding: 100px 20px 140px 20px; text-align: center; border-bottom: 4px solid var(--accent); position: relative; }
+.hero-content h1 { font-size: 3.8em; margin: 0 0 15px 0; color: white; text-shadow: 0 4px 15px rgba(0,0,0,0.8); font-weight: 800; letter-spacing: 1px; }
+.hero-content p { font-size: 1.25em; line-height: 1.6; color: #ccc; margin-bottom: 40px; }
 .hero-buttons { display: flex; gap: 20px; justify-content: center; }
 .btn-hero { padding: 15px 35px; border-radius: 35px; font-size: 1.1em; font-weight: bold; text-decoration: none; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; border: none; }
-.btn-hero-primary { background: var(--accent); color: white; box-shadow: 0 4px 15px rgba(183,28,28,0.4); }
-.btn-hero-primary:hover { background: #d32f2f; color: white; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(183,28,28,0.6); }
+.btn-hero-primary { background: var(--accent); color: white; box-shadow: 0 4px 15px rgba(204,0,0,0.4); }
+.btn-hero-primary:hover { background: #e60000; color: white; transform: translateY(-3px); box-shadow: 0 6px 20px rgba(204,0,0,0.6); }
+
+/* 统计条 (深色墨砚背景) */
+.stats-banner { background: #1a1a1a; border-radius: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #333; padding: 40px; }
+.stat-block i { font-size: 2.5em; color: var(--accent); margin-bottom: 15px; display: block; }
+.stat-num { font-size: 2.8em; font-weight: bold; display: block; line-height: 1; margin-bottom: 8px; color: white; }
+.stat-text { color: #888; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; font-weight: bold; }
 
 /* 三大功能卡片 */
 .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-.feature-card { background: white; padding: 40px 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.08); transition: 0.3s; border-top: 5px solid var(--accent); }
-.feature-card:hover { transform: translateY(-10px); box-shadow: 0 15px 40px rgba(183,28,28,0.2); }
-.feature-icon { font-size: 3em; color: var(--accent); margin-bottom: 25px; transition: 0.3s; }
-.feature-card:hover .feature-icon { color: #d32f2f; }
+.feature-card { background: white; padding: 40px 30px; border-radius: 12px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: 0.3s; border-top: 4px solid #111; }
+.feature-card:hover { transform: translateY(-8px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); border-top-color: var(--accent); }
+.feature-icon { font-size: 3em; color: #111; margin-bottom: 25px; transition: 0.3s; }
+.feature-card:hover .feature-icon { color: var(--accent); transform: scale(1.1); }
 .feature-card h3 { font-size: 1.5em; color: var(--primary); margin: 0 0 15px 0; font-weight: bold; }
 .feature-card p { color: #666; margin-bottom: 30px; line-height: 1.6; }
-.feature-link { color: var(--accent); font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
-.feature-link:hover { gap: 12px; color: #d32f2f; }
-
-/* 统计条 (深色背景) */
-.stats-banner { background: var(--primary); border-radius: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border-bottom: 5px solid var(--accent); }
-.stat-block i { font-size: 2.5em; color: var(--accent); margin-bottom: 18px; display: block; }
-.stat-num { font-size: 2.8em; font-weight: bold; display: block; line-height: 1; margin-bottom: 8px; color: white; }
-.stat-text { color: #999; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; font-weight: bold; }
+.feature-link { color: #111; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+.feature-card:hover .feature-link { color: var(--accent); gap: 12px; }
 
 /* 最新攻略与热门讨论列表美化 */
 .list-item { display: flex; justify-content: space-between; align-items: center; padding: 18px 25px; text-decoration: none; transition: 0.2s; border-radius: 8px; }
-.list-item:hover { background: #fdfdfd; transform: translateX(5px); }
+.list-item:hover { background: #fafafa; transform: translateX(5px); border-left: 3px solid var(--accent); }
 .list-item h4 { margin: 0 0 5px 0; color: var(--text); font-size: 1.15em; font-weight: bold; transition: 0.2s; }
 .list-item:hover h4 { color: var(--accent); }
 .item-meta { font-size: 0.85em; color: #888; display: block; }
-.list-item .diff-badge, .list-item .category-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; }
-.diff-badge.beginner { background: #e8f5e9; color: #388e3c; }
-.diff-badge.intermediate { background: #fff3cd; color: #856404; }
-.diff-badge.advanced { background: #ffebee; color: #d32f2f; }
-.category-badge { background: #e9ecef; color: #555; }
+.list-item .diff-badge, .list-item .category-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; border: 1px solid #eee; }
+.diff-badge.beginner { background: #f1f8e9; color: #33691e; border-color: #c5e1a5; }
+.diff-badge.intermediate { background: #fff8e1; color: #ff8f00; border-color: #ffe082; }
+.diff-badge.advanced { background: #ffebee; color: var(--accent); border-color: #ffcdd2; }
+.category-badge { background: #f5f5f5; color: #444; }
 
 @media (max-width: 768px) {
     .hero-content h1 { font-size: 2.5em; }
