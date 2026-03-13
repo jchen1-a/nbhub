@@ -1,5 +1,5 @@
 <?php
-// index.php - 100% 完整版 (完美修复封面图长宽比，防止被裁剪，完美居中 Logo)
+// index.php - 100% 完整版 (加入强制刷新缓存机制 ?v=2，确保显示最新封面图)
 require_once 'config.php';
 
 $stats = ['users' => 0, 'guides' => 0, 'posts' => 0];
@@ -40,7 +40,7 @@ try {
 <div class="hero-section">
     <div class="hero-content">
         
-        <img src="assets/logo.png" alt="Naraka Hub Logo Oficial" class="hero-image-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <img src="assets/logo.png?v=2" alt="Naraka Hub Logo Oficial" class="hero-image-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
         <h1 class="brush-font fallback-title" style="display:none; font-size: 5em; margin: 0 0 10px 0; color: #fff; text-shadow: 3px 3px 0px var(--accent);">NARAKA HUB</h1>
         
         <p class="hero-subtitle">Tu centro de información definitivo: Sangre, Acero y Honor.</p>
@@ -151,15 +151,14 @@ try {
 <style>
 /* ================= 首页专属水墨武林精美 CSS ================= */
 
-/* 核心修复：移除固定的 padding，改用 aspect-ratio 和 Flexbox 让容器完美贴合原图比例 */
+/* 核心修复：在图片路径后加上 ?v=<?php echo time(); ?> 强制每次加载最新图片，彻底打破浏览器缓存！ */
 .hero-section { 
-    background: linear-gradient(135deg, rgba(10, 10, 12, 0.4) 0%, rgba(201, 20, 20, 0.3) 100%), url('assets/cover.jpg') no-repeat center center; 
+    background: linear-gradient(135deg, rgba(10, 10, 12, 0.4) 0%, rgba(201, 20, 20, 0.3) 100%), url('assets/cover.jpg?v=<?php echo time(); ?>') no-repeat center center; 
     background-size: cover;
     width: 100%;
-    /* 强制比例：16:7 是非常适合网页横幅的黄金比例，能大幅减少上下裁剪 */
     aspect-ratio: 16 / 7; 
     min-height: 500px;
-    max-height: 80vh; /* 防止在大显示器上过度拉伸占据整个屏幕 */
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -168,29 +167,27 @@ try {
     border-bottom: 5px solid var(--primary); 
     position: relative; 
     padding: 20px;
-    box-shadow: inset 0 -50px 100px -20px rgba(0,0,0,0.8); /* 底部添加一点黑影，让下方的统计条过渡更自然 */
+    box-shadow: inset 0 -50px 100px -20px rgba(0,0,0,0.8); 
 }
 
 .hero-content {
     width: 100%;
     max-width: 900px;
     margin: 0 auto;
-    /* 整体内容微微向上偏移，避开底部统计条带来的视觉压迫 */
     transform: translateY(-30px);
 }
 
-/* 官方图片 Logo 的样式 */
 .hero-image-logo {
     max-width: 100%;
     height: auto;
-    max-height: 220px; /* 稍微放大一点Logo，更有冲击力 */
+    max-height: 220px; 
     margin: 0 auto;
     display: block;
-    filter: drop-shadow(0px 8px 15px rgba(0,0,0,0.8)); /* 立体阴影效果 */
+    filter: drop-shadow(0px 8px 15px rgba(0,0,0,0.8)); 
     transition: transform 0.3s;
 }
 .hero-image-logo:hover {
-    transform: scale(1.03); /* 鼠标悬停微微放大互动 */
+    transform: scale(1.03); 
 }
 
 .hero-subtitle {
@@ -211,13 +208,11 @@ try {
 .btn-hero-secondary { background: rgba(0,0,0,0.5); color: white; border: 2px solid var(--accent); border-radius: 4px; backdrop-filter: blur(5px); }
 .btn-hero-secondary:hover { background: var(--accent); color: white; transform: translateY(-3px); box-shadow: 0 6px 15px rgba(204, 0, 0, 0.4); }
 
-/* 统计条 (深色墨砚背景) */
 .stats-banner { background: var(--primary); border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); text-align: center; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 2px solid #222; padding: 35px 20px; }
 .stat-block i { font-size: 2.5em; color: var(--accent); margin-bottom: 15px; display: block; }
 .stat-num { font-size: 3em; font-family: 'Cinzel', serif; font-weight: 800; display: block; line-height: 1; margin-bottom: 8px; color: white; }
 .stat-text { color: #888; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; font-weight: bold; }
 
-/* 三大功能卡片 */
 .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
 .feature-card { background: white; padding: 40px 30px; border-radius: 8px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.08); transition: 0.3s; border-top: 4px solid var(--primary); border-bottom: 1px solid #ddd; border-left: 1px solid #ddd; border-right: 1px solid #ddd; }
 .feature-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.12); border-top-color: var(--accent); }
@@ -228,7 +223,6 @@ try {
 .feature-link { color: var(--primary); font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9em; }
 .feature-card:hover .feature-link { color: var(--accent); gap: 12px; }
 
-/* 列表项悬停效果 */
 .list-item { display: flex; justify-content: space-between; align-items: center; padding: 18px 25px; text-decoration: none; transition: 0.2s; background: white; }
 .list-item:hover { background: #fafafa; border-left: 4px solid var(--accent); padding-left: 21px; }
 .list-item h4 { margin: 0 0 5px 0; color: var(--text); font-size: 1.1em; font-weight: bold; transition: 0.2s; }
