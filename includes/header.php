@@ -1,5 +1,4 @@
 <?php
-// includes/header.php - 100% 完整版 (苍月灰底色 + 彼岸花红 + 狂草毛笔字体)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -33,78 +32,363 @@ if (isset($_SESSION['user_id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naraka Hub</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* ================= 核心全局排版 CSS (苍灰+浓墨+猩红) ================= */
         :root {
-            --primary: #0a0a0c;  /* 极深浓墨黑 */
-            --accent: #c91414;   /* 彼岸花猩红，纯正锐利 */
-            --text: #1a1a1a;     /* 常规字体深黑 */
-            --bg: #e2e4e9;       /* 苍月灰/天空灰 (完美契合图片背景) */
-            --danger: #d32f2f;   /* 危险红 */
-            --success: #2e7d32;  /* 沉稳绿 */
-            --warning: #f57f17;  /* 琉璃金 */
+            --primary: #0a0a0c;
+            --accent: #c91414;
+            --text: #1a1a1a;
+            --bg: #e2e4e9;
+            --danger: #d32f2f;
+            --success: #2e7d32;
+            --warning: #f57f17;
         }
         
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
         
-        /* 狂草毛笔特效字体 (用于Logo和主标题) */
-        .brush-font {
-            font-family: 'Permanent Marker', cursive;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            line-height: 1.6; 
         }
-
-        /* 锐利武侠字体 (用于副标题和普通面板) */
-        h1, h2, h3 {
-            font-family: 'Cinzel', serif;
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Cinzel', 'Noto Serif SC', serif;
             font-weight: 800;
             color: var(--primary);
+            letter-spacing: 0.5px;
         }
 
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        a { text-decoration: none; color: var(--accent); transition: 0.3s; }
-        a:hover { color: #8a0b0b; }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
         
-        /* 卡片风格统一为白底+浅色阴影，凸显水墨质感 */
-        .card, .wiki-card, .post-card { background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; overflow: hidden; border: 1px solid #d1d4d8; }
-        .card-header { padding: 15px 20px; border-bottom: 1px solid #eee; background: #fafafa; margin: 0; }
-        .card-body { padding: 20px; }
-        
-        /* 按钮使用纯正的猩红 */
-        .btn, .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; text-decoration: none; font-size: 1em; text-transform: uppercase; letter-spacing: 1px; }
-        .btn:hover, .btn-primary:hover { background: #8a0b0b; color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(201, 20, 20, 0.4); }
-        .btn-outline { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
-        .btn-outline:hover { background: var(--accent); color: white; }
+        a { 
+            text-decoration: none; 
+            color: var(--accent); 
+            transition: all 0.3s ease; 
+        }
 
-        /* ================= 导航栏样式 ================= */
-        .navbar { background: var(--primary); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-bottom: 3px solid var(--accent); }
-        .nav-brand { font-size: 2.2em; color: #fff; text-shadow: 2px 2px 0px var(--accent); } /* 白色毛笔字+猩红阴影 */
-        .nav-links { display: flex; gap: 20px; align-items: center; }
-        .nav-links a { color: #e2e4e9; text-decoration: none; font-weight: bold; transition: color 0.3s; display: flex; align-items: center; gap: 6px; text-transform: uppercase; font-family: 'Cinzel', serif; letter-spacing: 1px; }
-        .nav-links a:hover { color: var(--accent); }
+        .card, .wiki-card, .post-card { 
+            background: white; 
+            border-radius: 2px; 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.04); 
+            margin-bottom: 25px; 
+            overflow: hidden; 
+            border: 1px solid rgba(0,0,0,0.05); 
+        }
         
-        .user-menu { position: relative; display: inline-block; cursor: pointer; }
-        .user-menu::after { content: ''; position: absolute; top: 100%; left: 0; width: 100%; height: 15px; background: transparent; z-index: 999; }
+        .card-header { 
+            padding: 20px 25px; 
+            border-bottom: 1px solid rgba(0,0,0,0.04); 
+            background: #fff; 
+            margin: 0; 
+        }
+        
+        .card-body { 
+            padding: 25px; 
+        }
+        
+        .btn, .btn-primary { 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 8px; 
+            padding: 10px 24px; 
+            background: var(--accent); 
+            color: white; 
+            border: 1px solid var(--accent); 
+            border-radius: 2px; 
+            cursor: pointer; 
+            font-family: 'Cinzel', 'Noto Serif SC', serif; 
+            font-weight: 600; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            text-decoration: none; 
+            font-size: 0.95em; 
+            letter-spacing: 1px; 
+            text-transform: uppercase;
+        }
+        
+        .btn:hover, .btn-primary:hover { 
+            background: #900a0a; 
+            border-color: #900a0a;
+            box-shadow: 0 4px 15px rgba(201, 20, 20, 0.3); 
+            transform: translateY(-1px); 
+        }
+        
+        .btn-outline { 
+            background: transparent; 
+            color: var(--accent); 
+            border: 1px solid var(--accent); 
+        }
+        
+        .btn-outline:hover { 
+            background: var(--accent); 
+            color: white; 
+            box-shadow: 0 4px 15px rgba(201, 20, 20, 0.2);
+        }
 
-        .user-menu-btn { display: flex; align-items: center; gap: 8px; color: white; background: rgba(255,255,255,0.08); padding: 8px 15px; border-radius: 4px; transition: 0.3s; border: 1px solid rgba(255,255,255,0.1); font-family: 'Segoe UI', sans-serif; }
-        .user-menu-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); }
-        .user-menu-btn.admin-glow { border-color: var(--warning); color: var(--warning); }
+        .navbar { 
+            background: rgba(10, 10, 12, 0.95); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0 40px; 
+            height: 75px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3); 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
         
-        .dropdown-content { display: none; position: absolute; right: 0; top: calc(100% + 10px); background-color: white; min-width: 200px; box-shadow: 0px 8px 25px rgba(0,0,0,0.2); z-index: 1000; border-radius: 4px; overflow: hidden; border: 1px solid #ccc; font-family: 'Segoe UI', sans-serif; }
-        .dropdown-content a { color: var(--text); padding: 12px 16px; text-decoration: none; display: block; font-size: 0.95em; border-bottom: 1px solid #eee; transition: 0.2s; text-transform: none; font-family: 'Segoe UI', sans-serif; font-weight: 500;}
-        .dropdown-content a:hover { background-color: #f5f5f5; color: var(--accent); padding-left: 20px; border-left: 4px solid var(--accent); }
-        .user-menu:hover .dropdown-content { display: block; }
+        .nav-brand { 
+            font-family: 'Cinzel', 'Noto Serif SC', serif; 
+            font-size: 1.6em; 
+            font-weight: 800; 
+            color: #fff; 
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: color 0.3s;
+        }
         
-        .alert { padding: 15px; margin-bottom: 20px; border-radius: 4px; font-weight: bold; border-left: 5px solid; }
-        .alert-success { background: white; color: var(--success); border-left-color: var(--success); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .alert-error { background: white; color: var(--accent); border-left-color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .nav-brand i {
+            color: var(--accent);
+            font-size: 0.9em;
+        }
+        
+        .nav-brand:hover {
+            color: #ddd;
+        }
+        
+        .nav-links { 
+            display: flex; 
+            gap: 35px; 
+            align-items: center; 
+            height: 100%;
+        }
+        
+        .nav-links > a { 
+            color: #999; 
+            text-decoration: none; 
+            font-family: 'Cinzel', 'Noto Serif SC', serif; 
+            font-weight: 600; 
+            font-size: 0.85em; 
+            letter-spacing: 1.5px; 
+            text-transform: uppercase;
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            height: 100%;
+            position: relative;
+            transition: color 0.3s;
+        }
+        
+        .nav-links > a i {
+            font-size: 1.1em;
+            margin-top: -2px;
+            color: #777;
+            transition: color 0.3s;
+        }
+        
+        .nav-links > a:hover { 
+            color: #fff; 
+        }
+        
+        .nav-links > a:hover i {
+            color: var(--accent);
+        }
+        
+        .nav-links > a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(-50%);
+        }
+        
+        .nav-links > a:hover::after {
+            width: 100%;
+        }
+        
+        .user-menu { 
+            position: relative; 
+            display: inline-flex; 
+            align-items: center;
+            height: 100%;
+            cursor: pointer; 
+        }
+        
+        .user-menu::after { 
+            content: ''; 
+            position: absolute; 
+            top: 100%; 
+            left: 0; 
+            width: 100%; 
+            height: 20px; 
+            background: transparent; 
+            z-index: 999; 
+        }
+
+        .user-menu-btn { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            color: #fff; 
+            background: transparent; 
+            padding: 8px 16px; 
+            border-radius: 2px; 
+            transition: all 0.3s; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            font-family: 'Cinzel', 'Noto Serif SC', serif;
+            font-weight: 600;
+            letter-spacing: 1px;
+            font-size: 0.85em;
+        }
+        
+        .user-menu:hover .user-menu-btn { 
+            border-color: var(--accent);
+            background: rgba(201, 20, 20, 0.05); 
+        }
+        
+        .user-menu-btn.admin-glow { 
+            border-color: rgba(245, 127, 23, 0.4); 
+            color: #ffeb3b; 
+        }
+        
+        .user-menu:hover .user-menu-btn.admin-glow { 
+            background: rgba(245, 127, 23, 0.08); 
+            border-color: #f57f17; 
+        }
+        
+        .dropdown-content { 
+            display: none; 
+            position: absolute; 
+            right: 0; 
+            top: calc(100% - 5px); 
+            background-color: rgba(12, 12, 14, 0.98); 
+            backdrop-filter: blur(10px);
+            min-width: 220px; 
+            box-shadow: 0px 10px 30px rgba(0,0,0,0.5); 
+            z-index: 1000; 
+            border-radius: 2px; 
+            border: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden; 
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .dropdown-content a { 
+            color: #bbb; 
+            padding: 14px 20px; 
+            text-decoration: none; 
+            display: block; 
+            font-size: 0.9em; 
+            border-bottom: 1px solid rgba(255,255,255,0.03); 
+            transition: all 0.2s; 
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+        }
+        
+        .dropdown-content a i {
+            margin-right: 10px;
+            width: 16px;
+            text-align: center;
+            color: #666;
+            transition: color 0.2s;
+        }
+        
+        .dropdown-content a:hover { 
+            background-color: rgba(201, 20, 20, 0.08); 
+            color: #fff; 
+            padding-left: 26px; 
+            border-left: 2px solid var(--accent); 
+        }
+        
+        .dropdown-content a:hover i {
+            color: var(--accent);
+        }
+        
+        .user-menu:hover .dropdown-content { 
+            display: block; 
+        }
+
+        .nav-login-btn {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 8px 24px;
+            border-radius: 2px;
+            font-family: 'Cinzel', 'Noto Serif SC', serif;
+            font-weight: 600;
+            letter-spacing: 1px;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        .nav-login-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(201, 20, 20, 0.3);
+        }
+        
+        .alert { 
+            padding: 15px 20px; 
+            margin-bottom: 25px; 
+            border-radius: 2px; 
+            font-weight: 600; 
+            border-left: 4px solid; 
+            animation: slideIn 0.3s ease-out; 
+            font-family: 'Segoe UI', sans-serif;
+        }
+        
+        @keyframes slideIn { 
+            from { transform: translateX(-20px); opacity: 0; } 
+            to { transform: translateX(0); opacity: 1; } 
+        }
+        
+        .alert-success { 
+            background: #fff; 
+            color: var(--success); 
+            border-left-color: var(--success); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        }
+        
+        .alert-error { 
+            background: #fff; 
+            color: var(--accent); 
+            border-left-color: var(--accent); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        }
+
+        @media (max-width: 900px) {
+            .navbar { padding: 0 20px; height: 65px; }
+            .nav-brand { font-size: 1.3em; letter-spacing: 2px; }
+            .nav-links > a { display: none; }
+            .nav-links > a.show-mobile { display: flex; }
+        }
     </style>
 </head>
 <body>
     <nav class="navbar">
-        <a href="index.php" class="nav-brand brush-font">Naraka Hub</a>
+        <a href="index.php" class="nav-brand"><i class="fas fa-gamepad"></i> Naraka Hub</a>
         <div class="nav-links">
             <a href="index.php"><i class="fas fa-home"></i> Inicio</a>
             <a href="wiki.php"><i class="fas fa-book"></i> Wiki</a>
@@ -116,22 +400,22 @@ if (isset($_SESSION['user_id'])) {
                     <div class="user-menu-btn <?php echo $is_admin ? 'admin-glow' : ''; ?>">
                         <i class="fas <?php echo $is_admin ? 'fa-user-shield' : 'fa-user-circle'; ?>"></i> 
                         <span><?php echo htmlspecialchars($header_username); ?></span>
-                        <i class="fas fa-chevron-down" style="font-size: 0.8em;"></i>
+                        <i class="fas fa-chevron-down" style="font-size: 0.8em; margin-left: 4px;"></i>
                     </div>
                     <div class="dropdown-content">
                         <?php if ($is_admin): ?>
-                            <a href="admin.php" style="background: rgba(245, 127, 23, 0.1); color: #f57f17; font-weight: bold; border-bottom: 1px solid #eee;">
+                            <a href="admin.php" style="color: #f57f17; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                 <i class="fas fa-shield-alt"></i> Panel de Admin
                             </a>
                         <?php endif; ?>
                         <a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Panel de Usuario</a>
                         <a href="profile.php"><i class="fas fa-id-badge"></i> Mi Perfil</a>
                         <a href="edit-profile.php"><i class="fas fa-user-cog"></i> Editar Perfil</a>
-                        <a href="logout.php" style="color: var(--danger);"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a>
+                        <a href="logout.php" style="color: #ff4444;"><i class="fas fa-sign-out-alt" style="color: #ff4444;"></i> Cerrar Sesión</a>
                     </div>
                 </div>
             <?php else: ?>
-                <a href="login.php" style="background: var(--accent); padding: 8px 20px; border-radius: 4px; color: white; font-family: 'Segoe UI', sans-serif;">Iniciar Sesión</a>
+                <a href="login.php" class="nav-login-btn show-mobile">Iniciar Sesión</a>
             <?php endif; ?>
         </div>
     </nav>
@@ -139,7 +423,7 @@ if (isset($_SESSION['user_id'])) {
     <?php if (isset($_SESSION['flash_message'])): ?>
         <div class="container">
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> <?php echo $_SESSION['flash_message']; ?>
+                <i class="fas fa-check-circle" style="margin-right: 8px;"></i> <?php echo $_SESSION['flash_message']; ?>
                 <?php unset($_SESSION['flash_message']); ?>
             </div>
         </div>
@@ -148,7 +432,7 @@ if (isset($_SESSION['user_id'])) {
     <?php if (isset($_SESSION['flash_error'])): ?>
         <div class="container">
             <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['flash_error']; ?>
+                <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i> <?php echo $_SESSION['flash_error']; ?>
                 <?php unset($_SESSION['flash_error']); ?>
             </div>
         </div>
