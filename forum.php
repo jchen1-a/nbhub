@@ -1,13 +1,23 @@
 <?php
-// forum.php - 论坛页面 (终极修复版)
+// forum.php - 100% 完整版 (极简高级版：移除多余统计，统一霸气标题排版)
 require_once 'config.php';
+
+// 辅助函数：获取国旗emoji
+function get_flag($country_code) {
+    $flags = [
+        'ES' => '🇪🇸', 'MX' => '🇲🇽', 'AR' => '🇦🇷', 'US' => '🇺🇸',
+        'BR' => '🇧🇷', 'FR' => '🇫🇷', 'DE' => '🇩🇪', 'UK' => '🇬🇧',
+        'IT' => '🇮🇹', 'JP' => '🇯🇵', 'KR' => '🇰🇷', 'CN' => '🇨🇳'
+    ];
+    return $flags[$country_code] ?? '🌐';
+}
 
 $current_page = max(1, intval($_GET['page'] ?? 1));
 $per_page = 10;
 $search = sanitize($_GET['search'] ?? '');
 $category = sanitize($_GET['category'] ?? '');
+$sort = sanitize($_GET['sort'] ?? 'newest');
 
-// 预先定义变量，防止数据库查询失败时导致 HTML 致命错误
 $posts = [];
 $categories = [];
 $total_posts = 0;
@@ -21,7 +31,6 @@ try {
     $params = [];
     
     if (!empty($search)) {
-        // 确保使用 LIKE
         $where[] = "(title LIKE ? OR content LIKE ?)";
         $search_term = "%$search%";
         $params[] = $search_term;
@@ -45,7 +54,6 @@ try {
     // 获取帖子列表
     $offset = ($current_page - 1) * $per_page;
     
-    // 【关键修复】直接拼接 LIMIT 和 OFFSET 为整数，避免 PDO 字符串绑定导致的 1064 报错
     $posts_sql = "
         SELECT p.*, 
                u.username as author_name,
@@ -60,11 +68,10 @@ try {
         LIMIT " . (int)$per_page . " OFFSET " . (int)$offset;
     
     $posts_stmt = $pdo->prepare($posts_sql);
-    // 执行时只传 WHERE 条件的参数
     $posts_stmt->execute($params);
     $posts = $posts_stmt->fetchAll();
     
-    // 获取分类
+    // 获取分类统计
     $categories = $pdo->query("
         SELECT category, COUNT(*) as count 
         FROM forum_posts 
@@ -78,356 +85,458 @@ try {
 ?>
 <?php include 'includes/header.php'; ?>
 
-<div class="forum-container">
-    <div class="forum-header">
-        <div class="forum-header-content">
-            <h1><i class="fas fa-comments"></i> Foro de la Comunidad</h1>
-            <p>Comparte estrategias, haz preguntas y conecta con otros jugadores</p>
-        </div>
-        
+<div class="fixed-blurred-bg"></div>
+
+<div class="wiki-glass-container">
+    
+    <div class="home-header" style="padding-top: 30px; padding-bottom: 25px; text-align: center;">
+        <h1 class="brush-font fallback-title" style="font-size: 4em; margin: 0; color: #fff; text-shadow: 3px 3px 0px var(--accent); font-family: 'Cinzel', serif; text-transform: uppercase;">Salón de la Comunidad</h1>
+    </div>
+
+    <div style="display: flex; justify-content: center; margin-bottom: 50px;">
         <?php if (is_logged_in()): ?>
-        <div class="forum-header-actions">
-            <a href="new-post.php" class="btn-primary">
-                <i class="fas fa-plus"></i> Nuevo Tema
-            </a>
-        </div>
-        <?php endif; ?>
-    </div>
-    
-    <div class="forum-filters">
-        <form method="GET" class="search-form">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" 
-                       placeholder="Buscar en el foro...">
-                <button type="submit" class="btn-search">Buscar</button>
-            </div>
-            
-            <div class="filter-options">
-                <select name="category" onchange="this.form.submit()">
-                    <option value="all">Todas las categorías</option>
-                    <?php foreach ($categories as $cat): ?>
-                    <option value="<?php echo htmlspecialchars($cat['category']); ?>" 
-                        <?php echo $category == $cat['category'] ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars(ucfirst($cat['category'])); ?> (<?php echo $cat['count']; ?>)
-                    </option>
-                    <?php endforeach; ?>
-                </select>
-                
-                <select name="sort" onchange="this.form.submit()">
-                    <option value="newest">Más recientes</option>
-                    <option value="popular">Más populares</option>
-                    <option value="unanswered">Sin respuesta</option>
-                </select>
-            </div>
-        </form>
-    </div>
-    
-    <div class="forum-stats">
-        <div class="stat-item">
-            <i class="fas fa-file-alt"></i>
-            <div>
-                <span class="stat-number"><?php echo $total_posts; ?></span>
-                <span class="stat-label">Temas</span>
-            </div>
-        </div>
-        <div class="stat-item">
-            <i class="fas fa-comment"></i>
-            <div>
-                <span class="stat-number">
-                    <?php
-                    try {
-                        $total_replies = $pdo->query("SELECT COUNT(*) as c FROM forum_replies")->fetch()['c'];
-                        echo $total_replies;
-                    } catch (Exception $e) {
-                        echo '0';
-                    }
-                    ?>
-                </span>
-                <span class="stat-label">Respuestas</span>
-            </div>
-        </div>
-        <div class="stat-item">
-            <i class="fas fa-users"></i>
-            <div>
-                <span class="stat-number">
-                    <?php
-                    try {
-                        // 修复 PostgreSQL 专用的 INTERVAL '30 days' 语法为 MySQL 支持的 30 DAY
-                        $active_users = $pdo->query("
-                            SELECT COUNT(DISTINCT user_id) as c 
-                            FROM forum_posts 
-                            WHERE created_at > NOW() - INTERVAL 30 DAY
-                        ")->fetch()['c'];
-                        echo $active_users;
-                    } catch (Exception $e) {
-                        echo '0';
-                    }
-                    ?>
-                </span>
-                <span class="stat-label">Usuarios activos</span>
-            </div>
-        </div>
-    </div>
-    
-    <div class="posts-table">
-        <div class="table-header">
-            <div class="col-topic">Tema</div>
-            <div class="col-replies">Respuestas</div>
-            <div class="col-views">Vistas</div>
-            <div class="col-last">Última respuesta</div>
-        </div>
-        
-        <?php if (isset($error)): ?>
-        <div class="alert alert-error">
-            <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
-        </div>
-        <?php endif; ?>
-        
-        <?php if (empty($posts)): ?>
-        <div class="empty-forum">
-            <i class="fas fa-comments-slash"></i>
-            <h3>No hay temas en el foro</h3>
-            <p>Sé el primero en crear un tema de discusión.</p>
-            <?php if (is_logged_in()): ?>
-            <a href="new-post.php" class="btn-primary">Crear primer tema</a>
-            <?php else: ?>
-            <p><a href="login.php">Inicia sesión</a> para publicar en el foro.</p>
-            <?php endif; ?>
-        </div>
+            <a href="new-post.php" class="btn-hero btn-hero-primary"><i class="fas fa-plus"></i> Iniciar Discusión</a>
         <?php else: ?>
+            <a href="login.php" class="btn-hero btn-hero-secondary" style="border-color: #555;"><i class="fas fa-sign-in-alt"></i> Entrar para Discutir</a>
+        <?php endif; ?>
+    </div>
+
+    <div class="wiki-layout">
         
-        <?php foreach ($posts as $post): ?>
-        <div class="post-row <?php echo $post['is_pinned'] ? 'pinned' : ''; ?>">
-            <div class="col-topic">
-                <div class="topic-main">
-                    <?php if ($post['is_pinned']): ?>
-                    <span class="badge pinned-badge">
-                        <i class="fas fa-thumbtack"></i> Fijado
-                    </span>
-                    <?php endif; ?>
-                    
-                    <?php if ($post['reply_count'] == 0): ?>
-                    <span class="badge new-badge">
-                        <i class="fas fa-star"></i> Nuevo
-                    </span>
-                    <?php endif; ?>
-                    
-                    <h4 class="topic-title">
-                        <a href="view-post.php?id=<?php echo $post['id']; ?>">
-                            <?php echo htmlspecialchars($post['title']); ?>
-                        </a>
-                    </h4>
-                    
-                    <div class="topic-meta">
-                        <span class="topic-category"><?php echo htmlspecialchars($post['category']); ?></span>
-                        <span class="topic-author">
-                            por <a href="profile.php?user=<?php echo $post['user_id']; ?>">
-                                <?php echo htmlspecialchars($post['author_name']); ?>
-                            </a>
-                            <?php if ($post['author_country']): ?>
-                            <span class="flag"><?php echo get_flag($post['author_country']); ?></span>
-                            <?php endif; ?>
-                        </span>
+        <aside class="wiki-sidebar">
+            
+            <div class="glass-card" style="margin-bottom: 25px;">
+                <h3 class="card-glass-title"><i class="fas fa-search"></i> Explorar Foro</h3>
+                
+                <form method="GET" class="forum-filter-form">
+                    <div class="ink-search-form" style="margin-bottom: 20px;">
+                        <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Buscar tema...">
+                        <button type="submit"><i class="fas fa-search"></i></button>
                     </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label class="filter-subtitle" style="display:block;">Categoría</label>
+                        <select name="category" class="glass-select" onchange="this.form.submit()">
+                            <option value="all">Todas las categorías</option>
+                            <?php foreach ($categories as $cat): ?>
+                            <option value="<?php echo htmlspecialchars($cat['category']); ?>" <?php echo $category == $cat['category'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars(ucfirst($cat['category'])); ?> (<?php echo $cat['count']; ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="filter-subtitle" style="display:block;">Ordenar Por</label>
+                        <select name="sort" class="glass-select" onchange="this.form.submit()">
+                            <option value="newest" <?php echo $sort == 'newest' ? 'selected' : ''; ?>>Más recientes</option>
+                            <option value="popular" <?php echo $sort == 'popular' ? 'selected' : ''; ?>>Más populares</option>
+                            <option value="unanswered" <?php echo $sort == 'unanswered' ? 'selected' : ''; ?>>Sin respuesta</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+
+            <div class="glass-card" style="margin-bottom: 25px;">
+                <h3 class="card-glass-title"><i class="fas fa-tags"></i> Etiquetas Populares</h3>
+                <div class="glass-tags-list">
+                    <?php
+                    try {
+                        $tags = $pdo->query("SELECT tag, COUNT(*) as count FROM forum_tags GROUP BY tag ORDER BY count DESC LIMIT 10")->fetchAll();
+                        if($tags) {
+                            foreach ($tags as $tag):
+                    ?>
+                    <a href="?search=<?php echo urlencode($tag['tag']); ?>" class="glass-tag">
+                        <?php echo htmlspecialchars($tag['tag']); ?>
+                        <span class="tag-count"><?php echo $tag['count']; ?></span>
+                    </a>
+                    <?php 
+                            endforeach;
+                        } else {
+                            echo "<span style='color:#777;font-size:0.9em;'>Aún no hay etiquetas.</span>";
+                        }
+                    } catch (Exception $e) {
+                        echo "<span style='color:#777;font-size:0.9em;'>Aún no hay etiquetas.</span>";
+                    }
+                    ?>
                 </div>
             </div>
-            
-            <div class="col-replies">
-                <span class="replies-count"><?php echo $post['reply_count']; ?></span>
+
+            <div class="glass-card">
+                <h3 class="card-glass-title"><i class="fas fa-gavel"></i> Leyes de Morus</h3>
+                <ul class="glass-rules-list">
+                    <li><i class="fas fa-check"></i> Respeta a todos los guerreros.</li>
+                    <li><i class="fas fa-check"></i> Nada de spam ni contenido oscuro.</li>
+                    <li><i class="fas fa-check"></i> Usa las categorías correctas.</li>
+                    <li><i class="fas fa-check"></i> Busca antes de crear un tema.</li>
+                </ul>
             </div>
             
-            <div class="col-views">
-                <span class="views-count"><?php echo $post['views'] ?? 0; ?></span>
-            </div>
+        </aside>
+
+        <main class="wiki-main-content">
             
-            <div class="col-last">
-                <?php if ($post['last_reply_at']): ?>
-                <div class="last-reply">
-                    <span class="last-replier"><?php echo htmlspecialchars($post['last_replier']); ?></span>
-                    <span class="last-time"><?php echo date('d/m/Y H:i', strtotime($post['last_reply_at'])); ?></span>
-                </div>
+            <?php if (isset($error)): ?>
+                <div class="glass-alert alert-error"><i class="fas fa-exclamation-triangle"></i> <?php echo $error; ?></div>
+            <?php endif; ?>
+
+            <div class="glass-card" style="padding: 0; overflow: hidden;">
+                <?php if (empty($posts)): ?>
+                    <div class="empty-glass-state">
+                        <i class="fas fa-comments-slash"></i>
+                        <p>El silencio domina este lugar... No hay temas de discusión.</p>
+                        <?php if (is_logged_in()): ?>
+                            <a href="new-post.php" class="btn-ink-outline" style="margin-top: 15px; display: inline-block;">Ser el Primero</a>
+                        <?php endif; ?>
+                    </div>
                 <?php else: ?>
-                <span class="no-replies">Sin respuestas</span>
+                    <div class="glass-post-list">
+                        <?php foreach ($posts as $post): ?>
+                            <div class="glass-post-row <?php echo $post['is_pinned'] ? 'pinned-row' : ''; ?>">
+                                
+                                <div class="post-main-col">
+                                    <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">
+                                        <?php if ($post['is_pinned']): ?>
+                                            <span class="glass-badge warning-badge"><i class="fas fa-thumbtack"></i> Fijado</span>
+                                        <?php endif; ?>
+                                        <?php if ($post['reply_count'] == 0): ?>
+                                            <span class="glass-badge success-badge"><i class="fas fa-star"></i> Nuevo</span>
+                                        <?php endif; ?>
+                                        <span class="glass-badge category-badge"><?php echo htmlspecialchars($post['category'] ?? 'General'); ?></span>
+                                    </div>
+                                    
+                                    <h4 class="post-title">
+                                        <a href="view-post.php?id=<?php echo $post['id']; ?>">
+                                            <?php echo htmlspecialchars($post['title']); ?>
+                                        </a>
+                                    </h4>
+                                    
+                                    <div class="post-meta">
+                                        <span>Por <a href="profile.php?user=<?php echo $post['user_id']; ?>" class="author-link"><?php echo htmlspecialchars($post['author_name']); ?></a></span>
+                                        <?php if ($post['author_country']): ?>
+                                            <span><?php echo get_flag($post['author_country']); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                
+                                <div class="post-stats-col">
+                                    <div class="stat-mini" title="Respuestas"><i class="fas fa-reply"></i> <?php echo $post['reply_count']; ?></div>
+                                    <div class="stat-mini" title="Vistas"><i class="fas fa-eye"></i> <?php echo $post['views'] ?? 0; ?></div>
+                                </div>
+
+                                <div class="post-last-col">
+                                    <?php if ($post['last_reply_at']): ?>
+                                        <div class="last-author"><i class="fas fa-user-edit"></i> <?php echo htmlspecialchars($post['last_replier']); ?></div>
+                                        <div class="last-time"><?php echo date('d/m/Y H:i', strtotime($post['last_reply_at'])); ?></div>
+                                    <?php else: ?>
+                                        <span style="color:#777; font-style:italic; font-size: 0.9em;">Sin respuestas</span>
+                                    <?php endif; ?>
+                                </div>
+                                
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
-        </div>
-        <?php endforeach; ?>
-        
-        <?php endif; ?>
-    </div>
-    
-    <?php if ($total_pages > 1): ?>
-    <div class="pagination">
-        <?php if ($current_page > 1): ?>
-        <a href="?page=1<?php echo $search ? "&search=$search" : ''; ?><?php echo $category ? "&category=$category" : ''; ?>" 
-           class="page-link first">
-            <i class="fas fa-angle-double-left"></i>
-        </a>
-        <a href="?page=<?php echo $current_page - 1; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $category ? "&category=$category" : ''; ?>" 
-           class="page-link prev">
-            <i class="fas fa-angle-left"></i>
-        </a>
-        <?php endif; ?>
-        
-        <?php
-        $start = max(1, $current_page - 2);
-        $end = min($total_pages, $current_page + 2);
-        
-        for ($i = $start; $i <= $end; $i++):
-        ?>
-        <a href="?page=<?php echo $i; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $category ? "&category=$category" : ''; ?>" 
-           class="page-link <?php echo $i == $current_page ? 'active' : ''; ?>">
-            <?php echo $i; ?>
-        </a>
-        <?php endfor; ?>
-        
-        <?php if ($current_page < $total_pages): ?>
-        <a href="?page=<?php echo $current_page + 1; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $category ? "&category=$category" : ''; ?>" 
-           class="page-link next">
-            <i class="fas fa-angle-right"></i>
-        </a>
-        <a href="?page=<?php echo $total_pages; ?><?php echo $search ? "&search=$search" : ''; ?><?php echo $category ? "&category=$category" : ''; ?>" 
-           class="page-link last">
-            <i class="fas fa-angle-double-right"></i>
-        </a>
-        <?php endif; ?>
-    </div>
-    <?php endif; ?>
-    
-    <div class="popular-tags">
-        <h3><i class="fas fa-tags"></i> Etiquetas Populares</h3>
-        <div class="tags-list">
-            <?php
-            try {
-                $tags = $pdo->query("
-                    SELECT tag, COUNT(*) as count 
-                    FROM forum_tags 
-                    GROUP BY tag 
-                    ORDER BY count DESC 
-                    LIMIT 15
-                ")->fetchAll();
+
+            <?php if ($total_pages > 1): ?>
+            <div class="glass-pagination">
+                <?php if ($current_page > 1): ?>
+                    <a href="?page=1&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&sort=<?php echo urlencode($sort); ?>" class="glass-page-link"><i class="fas fa-angle-double-left"></i></a>
+                    <a href="?page=<?php echo $current_page - 1; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&sort=<?php echo urlencode($sort); ?>" class="glass-page-link"><i class="fas fa-angle-left"></i></a>
+                <?php endif; ?>
                 
-                if($tags) {
-                    foreach ($tags as $tag):
-            ?>
-            <a href="?search=<?php echo urlencode($tag['tag']); ?>" class="tag">
-                <?php echo htmlspecialchars($tag['tag']); ?>
-                <span class="tag-count"><?php echo $tag['count']; ?></span>
-            </a>
-            <?php 
-                    endforeach;
-                } else {
-                    echo "<span style='color:#999;font-size:0.9em;'>Aún no hay etiquetas.</span>";
-                }
-            } catch (Exception $e) {
-                echo "<span style='color:#999;font-size:0.9em;'>Aún no hay etiquetas.</span>";
-            }
-            ?>
-        </div>
-    </div>
-    
-    <div class="forum-rules">
-        <h3><i class="fas fa-gavel"></i> Reglas del Foro</h3>
-        <ol>
-            <li>Respeta a todos los miembros de la comunidad</li>
-            <li>No publicar contenido ofensivo o inapropiado</li>
-            <li>Usa las categorías correctas para tus temas</li>
-            <li>No hacer spam o publicidad no solicitada</li>
-            <li>Busca antes de crear un tema nuevo</li>
-        </ol>
+                <?php
+                $start = max(1, $current_page - 2);
+                $end = min($total_pages, $current_page + 2);
+                for ($i = $start; $i <= $end; $i++):
+                ?>
+                    <a href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&sort=<?php echo urlencode($sort); ?>" 
+                       class="glass-page-link <?php echo $i == $current_page ? 'active' : ''; ?>">
+                        <?php echo $i; ?>
+                    </a>
+                <?php endfor; ?>
+                
+                <?php if ($current_page < $total_pages): ?>
+                    <a href="?page=<?php echo $current_page + 1; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&sort=<?php echo urlencode($sort); ?>" class="glass-page-link"><i class="fas fa-angle-right"></i></a>
+                    <a href="?page=<?php echo $total_pages; ?>&search=<?php echo urlencode($search); ?>&category=<?php echo urlencode($category); ?>&sort=<?php echo urlencode($sort); ?>" class="glass-page-link"><i class="fas fa-angle-double-right"></i></a>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+        </main>
     </div>
 </div>
 
 <style>
-.forum-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-.forum-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--accent); }
-.forum-header h1 { color: var(--primary); margin-bottom: 10px; }
-.forum-filters { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
-.search-form { display: flex; flex-direction: column; gap: 15px; }
-.search-box { display: flex; align-items: center; gap: 10px; background: #f8f9fa; border-radius: 8px; padding: 0 15px; }
-.search-box i { color: #666; }
-.search-box input { flex: 1; padding: 15px 0; border: none; background: transparent; font-size: 16px; }
-.search-box input:focus { outline: none; }
-.btn-search { background: var(--accent); color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
-.btn-search:hover { background: #00959c; }
-.filter-options { display: flex; gap: 15px; flex-wrap: wrap; }
-.filter-options select { padding: 10px 15px; border: 2px solid #ddd; border-radius: 6px; background: white; min-width: 200px; }
-.forum-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-.stat-item { background: white; padding: 20px; border-radius: 10px; display: flex; align-items: center; gap: 15px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
-.stat-item i { font-size: 2em; color: var(--accent); }
-.stat-number { display: block; font-size: 2em; font-weight: bold; color: var(--primary); }
-.stat-label { color: #666; font-size: 0.9em; }
-.posts-table { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
-.table-header { display: grid; grid-template-columns: 2fr 0.5fr 0.5fr 1fr; background: var(--primary); color: white; padding: 15px 20px; font-weight: bold; }
-.post-row { display: grid; grid-template-columns: 2fr 0.5fr 0.5fr 1fr; padding: 20px; border-bottom: 1px solid #eee; transition: background 0.3s; }
-.post-row:hover { background: #f8f9fa; }
-.post-row.pinned { background: #fff9e6; }
-.col-topic { padding-right: 20px; }
-.topic-main { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
-.badge { padding: 3px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
-.pinned-badge { background: var(--warning); color: #333; }
-.new-badge { background: var(--success); color: white; }
-.topic-title { margin: 0; flex: 1; }
-.topic-title a { color: var(--primary); text-decoration: none; }
-.topic-title a:hover { color: var(--accent); }
-.topic-meta { display: flex; gap: 15px; font-size: 0.9em; color: #666; }
-.topic-category { background: #e9ecef; padding: 2px 8px; border-radius: 4px; }
-.topic-author a { color: var(--accent); text-decoration: none; }
-.topic-author a:hover { text-decoration: underline; }
-.flag { font-size: 1.2em; }
-.col-replies, .col-views { display: flex; align-items: center; justify-content: center; }
-.replies-count, .views-count { font-weight: bold; color: var(--primary); }
-.col-last { display: flex; align-items: center; padding-left: 20px; }
-.last-reply { display: flex; flex-direction: column; }
-.last-replier { font-weight: 500; margin-bottom: 5px; }
-.last-time { font-size: 0.9em; color: #666; }
-.no-replies { color: #999; font-style: italic; }
-.empty-forum { text-align: center; padding: 60px 20px; }
-.empty-forum i { font-size: 4em; color: #ddd; margin-bottom: 20px; }
-.pagination { display: flex; justify-content: center; gap: 5px; margin: 30px 0; }
-.page-link { padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; text-decoration: none; color: var(--primary); transition: all 0.3s; min-width: 40px; text-align: center; }
-.page-link:hover { background: #f8f9fa; border-color: var(--accent); }
-.page-link.active { background: var(--accent); color: white; border-color: var(--accent); }
-.popular-tags, .forum-rules { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 30px; }
-.popular-tags h3, .forum-rules h3 { color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-.tags-list { display: flex; flex-wrap: wrap; gap: 10px; }
-.tag { display: inline-flex; align-items: center; gap: 5px; padding: 8px 15px; background: #e9ecef; border-radius: 20px; text-decoration: none; color: var(--primary); transition: all 0.3s; font-size: 0.9em; }
-.tag:hover { background: var(--accent); color: white; }
-.tag-count { background: white; color: var(--accent); padding: 2px 8px; border-radius: 10px; font-size: 0.8em; font-weight: bold; }
-.forum-rules ol { margin-left: 20px; color: #666; }
-.forum-rules li { margin-bottom: 10px; line-height: 1.5; }
+/* ================= 全局模糊底层与毛玻璃 Wiki 样式 ================= */
 
-@media (max-width: 768px) {
-    .forum-header { flex-direction: column; align-items: stretch; gap: 20px; }
-    .table-header, .post-row { grid-template-columns: 1fr; gap: 10px; }
-    .col-replies, .col-views, .col-last { justify-content: flex-start; padding-left: 0; }
-    .filter-options { flex-direction: column; }
-    .filter-options select { min-width: 100%; }
+body {
+    background-color: #0a0a0c !important;
+    color: #fff;
+    overflow: auto !important; 
+}
+
+/* 固定的全屏模糊底层 */
+.fixed-blurred-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: url('assets/cover.jpg?v=<?php echo time(); ?>') no-repeat center 20%;
+    background-size: cover;
+    filter: blur(15px) brightness(0.25) contrast(1.2);
+    z-index: -10; 
+    pointer-events: none !important; 
+}
+
+/* 容器限制 */
+.wiki-glass-container {
+    max-width: 1200px;
+    margin: 0 auto 80px auto;
+    padding: 0 20px;
+    position: relative;
+    z-index: 10;
+}
+
+/* 毛玻璃卡片通用类 */
+.glass-card {
+    background: rgba(15, 15, 18, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* 两列核心布局 */
+.wiki-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 30px;
+    align-items: start;
+}
+
+/* 左侧栏样式 */
+.card-glass-title {
+    font-family: 'Cinzel', serif;
+    color: #fff;
+    margin-top: 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.card-glass-title i { color: var(--accent); }
+
+/* 下拉菜单 */
+.glass-select {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    color: #ddd;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 12px;
+    border-radius: 2px;
+    font-size: 0.9em;
+    outline: none;
+    transition: 0.3s;
+}
+.glass-select:focus { border-color: var(--accent); }
+.glass-select option { background: #1a1a1a; color: #fff; }
+
+.filter-subtitle {
+    color: #aaa;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 0.85em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+/* 搜索框 */
+.ink-search-form {
+    display: flex;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    transition: 0.3s;
+}
+.ink-search-form:focus-within { border-color: var(--accent); }
+.ink-search-form input {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    color: #fff;
+    outline: none;
+}
+.ink-search-form button {
+    padding: 0 15px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.ink-search-form button:hover { background: #a30000; }
+
+/* 标签列表 */
+.glass-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.glass-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.05);
+    color: #ccc;
+    padding: 6px 12px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 0.85em;
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: all 0.3s;
+}
+.glass-tag:hover {
+    background: rgba(201, 20, 20, 0.2);
+    border-color: var(--accent);
+    color: #fff;
+}
+.tag-count {
+    background: rgba(0,0,0,0.5);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+/* 论坛规则 */
+.glass-rules-list { list-style: none; padding: 0; margin: 0; color: #aaa; font-size: 0.9em; line-height: 1.6; }
+.glass-rules-list li { margin-bottom: 10px; display: flex; align-items: flex-start; gap: 10px; }
+.glass-rules-list li i { color: var(--accent); margin-top: 4px; font-size: 0.8em; }
+
+/* 帖子行样式 */
+.glass-post-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 200px;
+    gap: 20px;
+    padding: 20px 30px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.2s;
+    align-items: center;
+}
+.glass-post-row:last-child { border-bottom: none; }
+.glass-post-row:hover { background: rgba(255,255,255,0.03); }
+.pinned-row { background: rgba(245, 127, 23, 0.03); border-left: 3px solid #f57f17; }
+
+.glass-badge {
+    padding: 3px 8px;
+    border-radius: 2px;
+    font-size: 0.7em;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-family: 'Segoe UI', sans-serif;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.4);
+    color: #ddd;
+}
+.warning-badge { color: #f57f17; border-color: rgba(245, 127, 23, 0.4); }
+.success-badge { color: #4caf50; border-color: rgba(76, 175, 80, 0.4); }
+.category-badge { color: #aaa; }
+
+.post-title { margin: 0 0 8px 0; font-size: 1.15em; line-height: 1.4; }
+.post-title a { color: #eee; text-decoration: none; transition: color 0.2s; }
+.post-title a:hover { color: var(--accent); }
+
+.post-meta { font-size: 0.85em; color: #777; display: flex; align-items: center; gap: 10px; }
+.author-link { color: #aaa; text-decoration: none; font-weight: bold; transition: 0.2s; }
+.author-link:hover { color: var(--accent); }
+
+.post-stats-col { display: flex; gap: 15px; justify-content: flex-end; color: #888; font-size: 0.9em; }
+.stat-mini { display: flex; align-items: center; gap: 6px; }
+
+.post-last-col { text-align: right; }
+.last-author { color: #ccc; font-size: 0.9em; margin-bottom: 4px; }
+.last-author i { color: var(--accent); font-size: 0.8em; margin-right: 5px; }
+.last-time { color: #666; font-size: 0.8em; }
+
+/* 分页模块 */
+.glass-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 30px;
+}
+.glass-page-link {
+    padding: 8px 14px;
+    background: rgba(15, 15, 18, 0.8);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 2px;
+    color: #ccc;
+    text-decoration: none;
+    transition: all 0.3s;
+    font-weight: bold;
+    font-family: 'Segoe UI', sans-serif;
+}
+.glass-page-link:hover {
+    background: rgba(201, 20, 20, 0.2);
+    border-color: var(--accent);
+    color: #fff;
+}
+.glass-page-link.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+/* 空状态 */
+.empty-glass-state { text-align: center; padding: 60px 20px; color: #666; }
+.empty-glass-state i { font-size: 3.5em; margin-bottom: 20px; opacity: 0.5; }
+
+/* 按钮通用 */
+.btn-hero { 
+    padding: 12px 25px; 
+    font-size: 0.95em; 
+    font-weight: 700; 
+    text-decoration: none; 
+    transition: all 0.3s ease; 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 10px; 
+    border: none; 
+    text-transform: uppercase; 
+    font-family: 'Cinzel', serif; 
+    letter-spacing: 1px;
+    border-radius: 2px;
+}
+.btn-hero-primary { background: rgba(201, 20, 20, 0.8); color: white; border: 1px solid var(--accent); backdrop-filter: blur(5px); }
+.btn-hero-primary:hover { background: var(--accent); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(204,0,0,0.4); }
+.btn-hero-secondary { background: rgba(0, 0, 0, 0.5); color: white; border: 1px solid var(--accent); backdrop-filter: blur(5px); }
+.btn-hero-secondary:hover { background: var(--accent); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(204,0,0,0.4); }
+.btn-ink-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 2px; transition: 0.3s; }
+.btn-ink-outline:hover { background: var(--accent); color: white; }
+
+@media (max-width: 900px) {
+    .wiki-layout { grid-template-columns: 1fr; }
+    .glass-post-row { grid-template-columns: 1fr; gap: 15px; padding: 20px; }
+    .post-stats-col, .post-last-col { justify-content: flex-start; text-align: left; }
 }
 </style>
 
 <script>
-// 标记已读
-document.querySelectorAll('.post-row').forEach(row => {
+// 标记已读交互
+document.querySelectorAll('.glass-post-row').forEach(row => {
     row.addEventListener('click', function(e) {
         if (!e.target.closest('a')) {
-            this.classList.add('read');
+            this.style.opacity = '0.7';
         }
     });
 });
 </script>
-
-<?php 
-// 辅助函数：获取国旗emoji
-function get_flag($country_code) {
-    $flags = [
-        'ES' => '🇪🇸', 'MX' => '🇲🇽', 'AR' => '🇦🇷', 'US' => '🇺🇸',
-        'BR' => '🇧🇷', 'FR' => '🇫🇷', 'DE' => '🇩🇪', 'UK' => '🇬🇧',
-        'IT' => '🇮🇹', 'JP' => '🇯🇵', 'KR' => '🇰🇷', 'CN' => '🇨🇳'
-    ];
-    return $flags[$country_code] ?? '🌐';
-}
-?>
 
 <?php include 'includes/footer.php'; ?>
