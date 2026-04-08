@@ -1,5 +1,5 @@
 <?php
-// reset-password.php - 100% 完整版 (重置新密码页面)
+// reset-password.php - 100% 完整版 (验证 Token 并修改密码)
 require_once 'config.php';
 
 if (is_logged_in()) {
@@ -7,103 +7,119 @@ if (is_logged_in()) {
     exit;
 }
 
-$token = $_GET['token'] ?? '';
+$token = $_GET['token'] ?? ($_POST['token'] ?? '');
 $errors = [];
-$is_valid_token = false;
-$reset_email = '';
+$valid_token = false;
+$user_id = 0;
 
 if (empty($token)) {
-    $errors['general'] = "Enlace inválido o ausente.";
+    $errors['general'] = "Enlace inválido o no proporcionado.";
 } else {
     try {
         $pdo = db_connect();
-        // 验证 Token 是否存在且在1小时内有效
-        $stmt = $pdo->prepare("SELECT email FROM password_resets WHERE token = ? AND created_at >= NOW() - INTERVAL 1 HOUR");
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE reset_token = ? AND reset_expires > NOW()");
         $stmt->execute([$token]);
-        $row = $stmt->fetch();
+        $user = $stmt->fetch();
         
-        if ($row) {
-            $is_valid_token = true;
-            $reset_email = $row['email'];
+        if ($user) {
+            $valid_token = true;
+            $user_id = $user['id'];
         } else {
-            $errors['general'] = "El enlace de restablecimiento es inválido o ha caducado (válido por 1 hora). Por favor, solicita uno nuevo.";
+            $errors['general'] = "El enlace de recuperación es inválido o ha caducado. Por favor, solicita uno nuevo.";
         }
     } catch (Exception $e) {
-        $errors['general'] = "Error del servidor: " . $e->getMessage();
+        $errors['general'] = "Error de base de datos.";
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_valid_token) {
-    $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-
-    if (strlen($password) < 6) {
-        $errors['password'] = "La contraseña debe tener al menos 6 caracteres.";
-    } elseif ($password !== $confirm_password) {
-        $errors['confirm_password'] = "Las contraseñas no coinciden.";
-    }
-
-    if (empty($errors)) {
-        try {
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $errors['general'] = "Error de seguridad (CSRF). Por favor, recarga e inténtalo de nuevo.";
+    } else {
+        $password = $_POST['password'] ?? '';
+        $confirm = $_POST['confirm_password'] ?? '';
+        
+        if (empty($password) || strlen($password) < 6) {
+            $errors['password'] = "La contraseña debe tener al menos 6 caracteres.";
+        } elseif ($password !== $confirm) {
+            $errors['confirm_password'] = "Las contraseñas no coinciden.";
+        }
+        
+        if (empty($errors)) {
+            $new_hash = password_hash($password, PASSWORD_DEFAULT);
+            $pdo->prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?")->execute([$new_hash, $user_id]);
             
-            // 更新密码
-            $update_stmt = $pdo->prepare("UPDATE users SET password = ? WHERE email = ?");
-            $update_stmt->execute([$hashed_password, $reset_email]);
-            
-            // 删除已使用的 Token
-            $pdo->prepare("DELETE FROM password_resets WHERE email = ?")->execute([$reset_email]);
-            
-            $_SESSION['flash_message'] = "¡Tu contraseña ha sido restablecida con éxito! Ya puedes iniciar sesión.";
+            $_SESSION['flash_message'] = "¡Tu contraseña ha sido actualizada con éxito! Ya puedes iniciar sesión.";
             header("Location: login.php");
             exit;
-            
-        } catch (Exception $e) {
-            $errors['general'] = "Error al actualizar la contraseña: " . $e->getMessage();
         }
     }
 }
 ?>
 <?php include 'includes/header.php'; ?>
 
-<div class="container" style="padding: 60px 20px; display: flex; justify-content: center; min-height: 70vh; align-items: center;">
-    <div class="card" style="width: 100%; max-width: 450px; padding: 40px; text-align: center; border-top: 5px solid var(--accent);">
-        <i class="fas fa-key" style="font-size: 4em; color: var(--accent); margin-bottom: 20px;"></i>
-        <h2 class="ink-black" style="margin-top: 0;">Nueva Contraseña</h2>
+<div class="auth-wrap">
+    <div class="auth-box">
+        <div class="auth-top">
+            <h1 class="ink-title">NUEVA CLAVE</h1>
+            <p class="ink-subtitle">Asegura tu cuenta</p>
+        </div>
 
         <?php if (isset($errors['general'])): ?>
-            <div class="alert alert-error"><?php echo $errors['general']; ?></div>
-            <div style="margin-top: 20px;">
-                <a href="forgot-password.php" class="btn-outline">Solicitar nuevo enlace</a>
-            </div>
-        <?php elseif ($is_valid_token): ?>
-            <p style="color: #666; margin-bottom: 30px;">Por favor, introduce tu nueva contraseña.</p>
+            <div class="ink-alert"><?php echo $errors['general']; ?></div>
+            <?php if (!$valid_token): ?>
+                <div class="ink-footer">
+                    <a href="forgot-password.php" class="ink-btn-main" style="text-decoration:none; display:inline-block; box-sizing:border-box;">Solicitar nuevo enlace</a>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+        
+        <?php if ($valid_token): ?>
+            <form method="POST" class="ink-form">
+                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
 
-            <form method="POST" style="text-align: left;">
-                <div style="margin-bottom: 20px;">
-                    <label style="font-weight: bold; display: block; margin-bottom: 8px; color: var(--text);">Nueva Contraseña</label>
-                    <div style="position: relative;">
-                        <i class="fas fa-lock" style="position: absolute; left: 15px; top: 14px; color: #888;"></i>
-                        <input type="password" name="password" required placeholder="Mínimo 6 caracteres" style="width: 100%; padding: 12px 15px 12px 45px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
-                    </div>
-                    <?php if(isset($errors['password'])) echo "<small style='color: var(--accent);'>{$errors['password']}</small>"; ?>
+                <div class="ink-group">
+                    <label>Nueva Contraseña</label>
+                    <input type="password" name="password" required>
+                    <?php if (isset($errors['password'])): ?>
+                        <span class="ink-err"><?php echo $errors['password']; ?></span>
+                    <?php endif; ?>
                 </div>
 
-                <div style="margin-bottom: 30px;">
-                    <label style="font-weight: bold; display: block; margin-bottom: 8px; color: var(--text);">Confirmar Contraseña</label>
-                    <div style="position: relative;">
-                        <i class="fas fa-lock" style="position: absolute; left: 15px; top: 14px; color: #888;"></i>
-                        <input type="password" name="confirm_password" required placeholder="Repite tu nueva contraseña" style="width: 100%; padding: 12px 15px 12px 45px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
-                    </div>
-                    <?php if(isset($errors['confirm_password'])) echo "<small style='color: var(--accent);'>{$errors['confirm_password']}</small>"; ?>
+                <div class="ink-group">
+                    <label>Confirmar Contraseña</label>
+                    <input type="password" name="confirm_password" required>
+                    <?php if (isset($errors['confirm_password'])): ?>
+                        <span class="ink-err"><?php echo $errors['confirm_password']; ?></span>
+                    <?php endif; ?>
                 </div>
 
-                <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-size: 1.1em;">
-                    <i class="fas fa-save"></i> Guardar Contraseña
-                </button>
+                <div class="ink-footer">
+                    <button type="submit" class="ink-btn-main"><i class="fas fa-key"></i> ACTUALIZAR CONTRASEÑA</button>
+                </div>
             </form>
         <?php endif; ?>
     </div>
 </div>
+
+<style>
+/* 复用 forgot-password.php 的样式 */
+.auth-wrap { min-height: calc(100vh - 75px); display: flex; align-items: center; justify-content: center; padding: 40px 20px; background: radial-gradient(circle at center, rgba(201, 20, 20, 0.03) 0%, transparent 70%); }
+.auth-box { width: 100%; max-width: 450px; background: var(--nj-module); padding: 50px 40px; box-shadow: 0 15px 50px rgba(0,0,0,0.5); border: 1px solid var(--nj-border); position: relative; border-radius: 6px; }
+.auth-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--nj-red); border-radius: 6px 6px 0 0;}
+.auth-top { text-align: center; margin-bottom: 40px; }
+.ink-title { font-size: 1.8em; margin: 0; color: var(--nj-text-main); letter-spacing: 2px; }
+.ink-subtitle { font-size: 0.8em; color: var(--nj-text-muted); text-transform: uppercase; margin-top: 5px; letter-spacing: 2px; }
+.ink-form .ink-group { margin-bottom: 25px; }
+.ink-form label { display: block; font-weight: 700; font-size: 0.8em; color: var(--nj-gold); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.ink-form input { width: 100%; padding: 12px 15px; border: 1px solid var(--nj-border); font-size: 1em; background: rgba(0,0,0,0.4); color: var(--nj-text-main); outline: none; border-radius: 4px; box-sizing: border-box; }
+.ink-form input:focus { border-color: var(--nj-gold); }
+.ink-err { display: block; color: var(--nj-red); font-size: 0.8em; margin-top: 5px; }
+.ink-alert { background: rgba(209, 35, 35, 0.1); color: var(--nj-text-main); padding: 15px; font-size: 0.9em; text-align: center; margin-bottom: 30px; border-left: 3px solid var(--nj-red); line-height: 1.5; }
+.ink-footer { text-align: center; margin-top: 30px; }
+.ink-btn-main { width: 100%; padding: 15px; background: var(--nj-red); color: #fff; border: none; font-weight: bold; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; border-radius: 4px; }
+.ink-btn-main:hover { background: #b81c1c; }
+</style>
 
 <?php include 'includes/footer.php'; ?>
