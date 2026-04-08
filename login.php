@@ -1,5 +1,5 @@
 <?php
-// login.php - 100% 完整版 (精准修复：匹配 password_hash 字段)
+// login.php - 100% 完整版 (精准修复：匹配 password_hash 字段 + CSRF 防护)
 require_once 'config.php';
 
 if (is_logged_in()) {
@@ -10,63 +10,68 @@ if (is_logged_in()) {
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $identifier = sanitize($_POST['identifier'] ?? '');
-    $password = $_POST['password'] ?? '';
+    // P0-1: CSRF 安全校验
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $errors['general'] = "Error de seguridad (CSRF). Por favor, recarga la página e inténtalo de nuevo.";
+    } else {
+        $identifier = sanitize($_POST['identifier'] ?? '');
+        $password = $_POST['password'] ?? '';
 
-    if (empty($identifier)) $errors['identifier'] = "El usuario o correo es obligatorio.";
-    if (empty($password)) $errors['password'] = "La contraseña es obligatoria.";
+        if (empty($identifier)) $errors['identifier'] = "El usuario o correo es obligatorio.";
+        if (empty($password)) $errors['password'] = "La contraseña es obligatoria.";
 
-    if (empty($errors)) {
-        try {
-            $pdo = db_connect();
-            // 支持通过用户名或邮箱登录
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
-            $stmt->execute([$identifier, $identifier]);
-            $user = $stmt->fetch();
+        if (empty($errors)) {
+            try {
+                $pdo = db_connect();
+                // 支持通过用户名或邮箱登录
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
+                $stmt->execute([$identifier, $identifier]);
+                $user = $stmt->fetch();
 
-            if ($user) {
-                $login_success = false;
-                $db_pass = $user['password_hash']; // 【关键修复】：使用 password_hash 字段
+                if ($user) {
+                    $login_success = false;
+                    $db_pass = $user['password_hash']; // 【关键修复】：使用 password_hash 字段
 
-                // 1. 标准安全验证 (新注册用户或刚重置密码的用户)
-                if (password_verify($password, $db_pass)) {
-                    $login_success = true;
-                } 
-                // 2. 兼容旧版 MD5 加密
-                elseif (md5($password) === $db_pass) {
-                    $login_success = true;
-                    // 无缝自动升级为更安全的哈希算法
-                    $new_hash = password_hash($password, PASSWORD_DEFAULT);
-                    $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
-                } 
-                // 3. 兼容最初期的明文密码
-                elseif ($password === $db_pass) {
-                    $login_success = true;
-                    // 无缝自动升级为更安全的哈希算法
-                    $new_hash = password_hash($password, PASSWORD_DEFAULT);
-                    $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
-                }
+                    // 1. 标准安全验证 (新注册用户或刚重置密码的用户)
+                    if (password_verify($password, $db_pass)) {
+                        $login_success = true;
+                    } 
+                    // 2. 兼容旧版 MD5 加密
+                    elseif (md5($password) === $db_pass) {
+                        $login_success = true;
+                        // 无缝自动升级为更安全的哈希算法
+                        $new_hash = password_hash($password, PASSWORD_DEFAULT);
+                        $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
+                    } 
+                    // 3. 兼容最初期的明文密码
+                    elseif ($password === $db_pass) {
+                        $login_success = true;
+                        // 无缝自动升级为更安全的哈希算法
+                        $new_hash = password_hash($password, PASSWORD_DEFAULT);
+                        $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
+                    }
 
-                if ($login_success) {
-                    // 暴力补全所有可能用到的 Session 变量，绝对防止任何页面报错或踢人
-                    $_SESSION['user_id']   = $user['id'];
-                    $_SESSION['user_name'] = $user['username'];
-                    $_SESSION['username']  = $user['username'];
-                    $_SESSION['name']      = $user['username'];
-                    $_SESSION['user']      = $user; // 整个数组存入，兼容性拉满
-                    
-                    $_SESSION['flash_message'] = "¡Bienvenido de nuevo, " . $user['username'] . "!";
-                    
-                    header("Location: dashboard.php");
-                    exit;
+                    if ($login_success) {
+                        // 暴力补全所有可能用到的 Session 变量，绝对防止任何页面报错或踢人
+                        $_SESSION['user_id']   = $user['id'];
+                        $_SESSION['user_name'] = $user['username'];
+                        $_SESSION['username']  = $user['username'];
+                        $_SESSION['name']      = $user['username'];
+                        $_SESSION['user']      = $user; // 整个数组存入，兼容性拉满
+                        
+                        $_SESSION['flash_message'] = "¡Bienvenido de nuevo, " . $user['username'] . "!";
+                        
+                        header("Location: dashboard.php");
+                        exit;
+                    } else {
+                        $errors['general'] = "Credenciales incorrectas.";
+                    }
                 } else {
                     $errors['general'] = "Credenciales incorrectas.";
                 }
-            } else {
-                $errors['general'] = "Credenciales incorrectas.";
+            } catch (Exception $e) {
+                $errors['general'] = "Error del servidor: " . $e->getMessage();
             }
-        } catch (Exception $e) {
-            $errors['general'] = "Error del servidor: " . $e->getMessage();
         }
     }
 }
@@ -85,6 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+
             <div style="margin-bottom: 20px;">
                 <label style="font-weight: bold; display: block; margin-bottom: 8px; color: var(--text);">Usuario o Correo</label>
                 <div style="position: relative;">

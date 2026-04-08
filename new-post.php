@@ -1,5 +1,5 @@
 <?php
-// new-post.php - 创建论坛新主题 (适配官方暖暗色调)
+// new-post.php - 创建论坛新主题 (接入 CSRF 防护)
 require_once 'config.php';
 require_login();
 
@@ -19,31 +19,36 @@ $categories = [
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $formData['title'] = sanitize($_POST['title'] ?? '');
-    $formData['category'] = sanitize($_POST['category'] ?? 'general');
-    $formData['content'] = trim($_POST['content'] ?? '');
+    // P0-1: CSRF 安全校验
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $errors['system'] = 'Error de seguridad (CSRF). Por favor, recarga la página e inténtalo de nuevo.';
+    } else {
+        $formData['title'] = sanitize($_POST['title'] ?? '');
+        $formData['category'] = sanitize($_POST['category'] ?? 'general');
+        $formData['content'] = trim($_POST['content'] ?? '');
 
-    if (empty($formData['title'])) {
-        $errors['title'] = 'El título es obligatorio.';
-    } elseif (strlen($formData['title']) < 5) {
-        $errors['title'] = 'El título debe ser más descriptivo.';
-    }
-    if (empty($formData['content'])) {
-        $errors['content'] = 'El contenido es obligatorio.';
-    }
+        if (empty($formData['title'])) {
+            $errors['title'] = 'El título es obligatorio.';
+        } elseif (strlen($formData['title']) < 5) {
+            $errors['title'] = 'El título debe ser más descriptivo.';
+        }
+        if (empty($formData['content'])) {
+            $errors['content'] = 'El contenido es obligatorio.';
+        }
 
-    if (empty($errors)) {
-        try {
-            $pdo = db_connect();
-            $stmt = $pdo->prepare("INSERT INTO forum_posts (user_id, title, content, category, created_at, last_reply_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
-            $stmt->execute([$_SESSION['user_id'], $formData['title'], $formData['content'], $formData['category']]);
-            $new_post_id = $pdo->lastInsertId();
-            
-            $_SESSION['flash_message'] = 'Tema creado exitosamente.';
-            header("Location: view-post.php?id=" . $new_post_id);
-            exit;
-        } catch (Exception $e) {
-            $errors['system'] = 'Error de base de datos: ' . $e->getMessage();
+        if (empty($errors)) {
+            try {
+                $pdo = db_connect();
+                $stmt = $pdo->prepare("INSERT INTO forum_posts (user_id, title, content, category, created_at, last_reply_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+                $stmt->execute([$_SESSION['user_id'], $formData['title'], $formData['content'], $formData['category']]);
+                $new_post_id = $pdo->lastInsertId();
+                
+                $_SESSION['flash_message'] = 'Tema creado exitosamente.';
+                header("Location: view-post.php?id=" . $new_post_id);
+                exit;
+            } catch (Exception $e) {
+                $errors['system'] = 'Error de base de datos: ' . $e->getMessage();
+            }
         }
     }
 }
@@ -66,12 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if (!empty($errors)): ?>
                 <div class="nj-alert">
                     <i class="fas fa-exclamation-triangle"></i> Por favor, corrige los errores del formulario.
-                    <?php if(isset($errors['system'])) echo "<br>".$errors['system']; ?>
+                    <?php if(isset($errors['system'])) echo "<br><strong>".$errors['system']."</strong>"; ?>
                 </div>
             <?php endif; ?>
 
             <div class="nj-sidebar-card">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+
                     <div style="margin-bottom: 25px;">
                         <label class="nj-label">Título del tema</label>
                         <input type="text" name="title" class="nj-input" value="<?php echo htmlspecialchars($formData['title']); ?>" required>
@@ -110,16 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <style>
-/* 继承 forum(1).php 核心变量与布局基准 */
 :root {
-    --nj-bg: #0B0A0A;              
-    --nj-module: #161413;          
-    --nj-module-hover: #1E1B19;    
-    --nj-red: #D12323;             
-    --nj-gold: #CCA677;            
-    --nj-border: #2D2926;          
-    --nj-text-main: #E6E4DF;       
-    --nj-text-muted: #8F98A0; 
+    --nj-bg: #0B0A0A; --nj-module: #161413; --nj-module-hover: #1E1B19;    
+    --nj-red: #D12323; --nj-gold: #CCA677; --nj-border: #2D2926;          
+    --nj-text-main: #E6E4DF; --nj-text-muted: #8F98A0; 
     --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 body { background-color: var(--nj-bg) !important; color: var(--nj-text-main); font-family: var(--font-main); margin: 0; padding: 0; overflow-x: hidden; }

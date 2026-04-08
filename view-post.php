@@ -1,5 +1,5 @@
 <?php
-// view-post.php - 100% 完整版 (点赞/收藏无刷新功能 + 官方暖暗配色)
+// view-post.php - 100% 完整版 (点赞/收藏无刷新功能 + 传统回复 CSRF 防护)
 require_once 'config.php';
 
 $post_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -19,7 +19,7 @@ try {
             exit;
         }
 
-        // 验证 CSRF 令牌
+        // AJAX CSRF 验证
         if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
             echo json_encode(['success' => false, 'message' => 'Error de seguridad.']);
             exit;
@@ -28,17 +28,14 @@ try {
         $action = $_POST['action'];
 
         if ($action === 'like') {
-            // 检查是否已点赞
             $check = $pdo->prepare("SELECT id FROM forum_post_likes WHERE post_id = ? AND user_id = ?");
             $check->execute([$post_id, $user_id]);
             
             if ($check->fetch()) {
-                // 取消点赞
                 $pdo->prepare("DELETE FROM forum_post_likes WHERE post_id = ? AND user_id = ?")->execute([$post_id, $user_id]);
                 $pdo->prepare("UPDATE forum_posts SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?")->execute([$post_id]);
                 $status = 'unliked';
             } else {
-                // 执行点赞
                 $pdo->prepare("INSERT INTO forum_post_likes (post_id, user_id) VALUES (?, ?)")->execute([$post_id, $user_id]);
                 $pdo->prepare("UPDATE forum_posts SET likes_count = likes_count + 1 WHERE id = ?")->execute([$post_id]);
                 $status = 'liked';
@@ -50,17 +47,14 @@ try {
         }
 
         if ($action === 'bookmark') {
-            // 检查是否已收藏
             $check = $pdo->prepare("SELECT id FROM user_bookmarks WHERE user_id = ? AND post_id = ?");
             $check->execute([$user_id, $post_id]);
             
             if ($check->fetch()) {
-                // 取消收藏
                 $pdo->prepare("DELETE FROM user_bookmarks WHERE user_id = ? AND post_id = ?")->execute([$user_id, $post_id]);
                 $pdo->prepare("UPDATE forum_posts SET bookmarks_count = GREATEST(0, bookmarks_count - 1) WHERE id = ?")->execute([$post_id]);
                 $status = 'unbookmarked';
             } else {
-                // 执行收藏
                 $pdo->prepare("INSERT INTO user_bookmarks (user_id, post_id) VALUES (?, ?)")->execute([$user_id, $post_id]);
                 $pdo->prepare("UPDATE forum_posts SET bookmarks_count = bookmarks_count + 1 WHERE id = ?")->execute([$post_id]);
                 $status = 'bookmarked';
@@ -89,12 +83,20 @@ try {
         $_SESSION['viewed_posts'][] = $post_id;
     }
 
-    // 处理回帖 (传统表单提交)
+    // 处理回帖 (传统表单提交 + P0-1 CSRF 校验)
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reply_content']) && is_logged_in()) {
+        
+        if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+            $_SESSION['flash_error'] = 'Error de seguridad (CSRF). Por favor, inténtalo de nuevo.';
+            header("Location: view-post.php?id=$post_id");
+            exit;
+        }
+
         $reply_content = trim($_POST['reply_content'] ?? '');
         if (!empty($reply_content)) {
             $pdo->prepare("INSERT INTO forum_replies (post_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())")->execute([$post_id, $user_id, $reply_content]);
             $pdo->prepare("UPDATE forum_posts SET last_reply_at = NOW(), last_reply_by = ? WHERE id = ?")->execute([$user_id, $post_id]);
+            $_SESSION['flash_message'] = 'Respuesta publicada exitosamente.';
             header("Location: view-post.php?id=$post_id");
             exit;
         }
@@ -129,6 +131,17 @@ try {
     <div class="nj-layout">
         <main class="nj-main" style="max-width: 1000px; margin: 0 auto;">
             
+            <?php if (isset($_SESSION['flash_error'])): ?>
+                <div class="nj-alert">
+                    <i class="fas fa-exclamation-triangle"></i> <?php echo $_SESSION['flash_error']; unset($_SESSION['flash_error']); ?>
+                </div>
+            <?php endif; ?>
+            <?php if (isset($_SESSION['flash_message'])): ?>
+                <div class="nj-alert" style="border-color: #28a745; background: rgba(40,167,69,0.1); color:#E6E4DF;">
+                    <i class="fas fa-check-circle"></i> <?php echo $_SESSION['flash_message']; unset($_SESSION['flash_message']); ?>
+                </div>
+            <?php endif; ?>
+
             <article class="nj-sidebar-card" style="position: relative; padding: 35px;">
                 <?php if ($user_id == $post['user_id']): ?>
                     <div style="position: absolute; right: 25px; top: 25px; display: flex; gap: 8px;">
@@ -193,6 +206,8 @@ try {
                 <?php if (is_logged_in()): ?>
                     <h3 class="nj-reply-title"><i class="fas fa-reply"></i> Añadir Respuesta</h3>
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                        
                         <textarea name="reply_content" class="nj-input" rows="5" required placeholder="Escribe tu respuesta aquí..."></textarea>
                         <div style="text-align: right; margin-top: 20px;">
                             <button type="submit" class="nj-btn-primary">Publicar Respuesta</button>
@@ -216,26 +231,33 @@ try {
     --nj-bg: #0B0A0A; --nj-module: #161413; --nj-red: #D12323; 
     --nj-gold: #CCA677; --nj-border: #2D2926; --nj-text-main: #E6E4DF; 
     --nj-text-muted: #8F98A0; 
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-
+body { background-color: var(--nj-bg) !important; color: var(--nj-text-main); font-family: var(--font-main); margin: 0; padding: 0; overflow-x: hidden; }
+.nj-static-bg { position: fixed; inset: 0; z-index: -10; background-color: var(--nj-bg); background-image: radial-gradient(circle at 10% 20%, rgba(209, 35, 35, 0.04), transparent 50%), radial-gradient(circle at 90% 80%, rgba(204, 166, 119, 0.03), transparent 50%); background-blend-mode: screen; }
+.nj-static-bg::after { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; }
+.nj-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 100vh; display: flex; flex-direction: column;}
+.nj-header { margin-top: 40px; margin-bottom: 30px; }
+.nj-layout { display: flex; flex: 1; }
+.nj-main { flex: 1; width: 100%; }
+.nj-sidebar-card { background: var(--nj-module); border: 1px solid var(--nj-border); border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);}
+.nj-input { width: 100%; padding: 15px; background: rgba(0,0,0,0.4); border: 1px solid var(--nj-border); border-radius: 6px; color: var(--nj-text-main); font-family: var(--font-main); outline: none; transition: 0.2s; box-sizing: border-box; font-size: 1em;}
+.nj-input:focus { border-color: var(--nj-gold); background: var(--nj-bg);}
+.nj-btn-primary { display: inline-block; text-align: center; background: var(--nj-red); color: #fff; padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; font-weight: bold; transition: background 0.2s; border: none; cursor: pointer;}
+.nj-btn-primary:hover { background: #b81c1c; }
+.nj-btn-secondary { display: inline-block; text-align: center; background: transparent; border: 1px solid var(--nj-border); color: var(--nj-text-main); padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; transition: 0.2s; cursor: pointer;}
+.nj-btn-secondary:hover { background: var(--nj-module-hover); border-color: var(--nj-text-muted); }
+.nj-alert { padding: 15px; background: rgba(209, 35, 35, 0.1); border: 1px solid var(--nj-red); color: var(--nj-text-main); border-radius: 8px; margin-bottom: 20px; font-size: 0.9em;}
 .nj-badge-cat { background: rgba(0,0,0,0.4); border: 1px solid var(--nj-border); padding: 4px 10px; border-radius: 4px; color: var(--nj-gold); font-size: 0.8em; font-weight: bold; letter-spacing: 1px; }
 .nj-post-title { margin: 0 0 15px 0; color: var(--nj-text-main); font-size: 1.8em; line-height: 1.3; }
 .nj-post-info { display: flex; gap: 20px; color: var(--nj-text-muted); font-size: 0.9em; }
 .nj-post-info i { color: var(--nj-gold); margin-right: 5px; }
 .nj-post-content { line-height: 1.8; color: var(--nj-text-main); font-size: 1.05em; margin-top: 25px; }
-
-/* 交互栏 */
 .nj-interaction-bar { display: flex; gap: 15px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--nj-border); }
-.nj-interact-btn { 
-    background: transparent; border: 1px solid var(--nj-border); 
-    color: var(--nj-text-muted); padding: 8px 18px; border-radius: 4px; 
-    cursor: pointer; transition: 0.2s; font-size: 0.9em; font-weight: 600; 
-}
+.nj-interact-btn { background: transparent; border: 1px solid var(--nj-border); color: var(--nj-text-muted); padding: 8px 18px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-size: 0.9em; font-weight: 600; }
 .nj-interact-btn:hover { background: var(--nj-border); color: var(--nj-text-main); }
 .nj-interact-btn.active { border-color: var(--nj-red); color: var(--nj-red); background: rgba(209, 35, 35, 0.05); }
 .nj-interact-btn#bookmark-btn.active { border-color: var(--nj-gold); color: var(--nj-gold); background: rgba(204, 166, 119, 0.05); }
-
-/* 回复区 */
 .nj-replies-divider { margin: 40px 0 20px 0; border-bottom: 1px solid var(--nj-border); padding-bottom: 10px; }
 .nj-replies-divider h3 { color: var(--nj-text-main); font-size: 1.1em; margin: 0; }
 .nj-reply-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px dashed var(--nj-border); padding-bottom: 15px; }
@@ -251,7 +273,6 @@ try {
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = '<?php echo csrf_token(); ?>';
     
-    // 处理点赞与收藏
     const interact = async (btn, action) => {
         const postId = btn.dataset.postId;
         const formData = new FormData();
@@ -266,9 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             
             if (data.success) {
-                // 更新计数
                 document.getElementById(action + '-count').textContent = data.new_count;
-                // 更新样式
                 btn.classList.toggle('active');
                 const icon = btn.querySelector('i');
                 

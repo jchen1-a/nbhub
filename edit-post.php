@@ -1,5 +1,5 @@
 <?php
-// edit-post.php - 编辑论坛帖子 (适配官方暖暗色调)
+// edit-post.php - 编辑论坛帖子 (接入 CSRF 防护)
 require_once 'config.php';
 require_login();
 
@@ -31,18 +31,23 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = sanitize($_POST['title'] ?? '');
-    $category = sanitize($_POST['category'] ?? 'general');
-    $content = trim($_POST['content'] ?? '');
+    // P0-1: CSRF 安全校验
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $errors['system'] = 'Error de seguridad (CSRF). Por favor, recarga la página e inténtalo de nuevo.';
+    } else {
+        $title = sanitize($_POST['title'] ?? '');
+        $category = sanitize($_POST['category'] ?? 'general');
+        $content = trim($_POST['content'] ?? '');
 
-    if (empty($title)) $errors['title'] = 'El título es obligatorio.';
-    if (empty($content)) $errors['content'] = 'El contenido es obligatorio.';
+        if (empty($title)) $errors['title'] = 'El título es obligatorio.';
+        if (empty($content)) $errors['content'] = 'El contenido es obligatorio.';
 
-    if (empty($errors)) {
-        $pdo->prepare("UPDATE forum_posts SET title=?, category=?, content=? WHERE id=?")->execute([$title, $category, $content, $id]);
-        $_SESSION['flash_message'] = '¡Tema actualizado exitosamente!';
-        header("Location: view-post.php?id=" . $id);
-        exit;
+        if (empty($errors)) {
+            $pdo->prepare("UPDATE forum_posts SET title=?, category=?, content=? WHERE id=?")->execute([$title, $category, $content, $id]);
+            $_SESSION['flash_message'] = '¡Tema actualizado exitosamente!';
+            header("Location: view-post.php?id=" . $id);
+            exit;
+        }
     }
 }
 ?>
@@ -62,11 +67,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <main class="nj-main" style="max-width: 900px; margin: 0 auto;">
             
             <?php if (!empty($errors)): ?>
-                <div class="nj-alert"><i class="fas fa-exclamation-triangle"></i> Revisa los campos requeridos.</div>
+                <div class="nj-alert">
+                    <i class="fas fa-exclamation-triangle"></i> Revisa los campos requeridos.
+                    <?php if(isset($errors['system'])) echo "<br><strong>".$errors['system']."</strong>"; ?>
+                </div>
             <?php endif; ?>
 
             <div class="nj-sidebar-card">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+
                     <div style="margin-bottom: 25px;">
                         <label class="nj-label">Título del tema</label>
                         <input type="text" name="title" class="nj-input" value="<?php echo htmlspecialchars($_POST['title'] ?? $post['title']); ?>" required>

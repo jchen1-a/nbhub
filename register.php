@@ -1,5 +1,5 @@
 <?php
-// register.php - 100% 完整版 (水墨武林风格美化版)
+// register.php - 100% 完整版 (水墨武林风格美化版 + CSRF 防护)
 require_once 'config.php';
 
 if (is_logged_in()) {
@@ -15,56 +15,61 @@ $formData = [
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $formData['username'] = sanitize($_POST['username'] ?? '');
-    $formData['email'] = sanitize($_POST['email'] ?? '');
-    $formData['country'] = sanitize($_POST['country'] ?? 'ES');
-    $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-    
-    if (empty($formData['username'])) {
-        $errors['username'] = 'El nombre de usuario es obligatorio.';
-    } elseif (strlen($formData['username']) < 3) {
-        $errors['username'] = 'Mínimo 3 caracteres.';
-    }
-    
-    if (empty($formData['email'])) {
-        $errors['email'] = 'El correo es obligatorio.';
-    } elseif (!filter_var($formData['email'], FILTER_VALIDATE_EMAIL)) {
-        $errors['email'] = 'Correo no válido.';
-    }
-    
-    if (empty($password) || strlen($password) < 6) {
-        $errors['password'] = 'Mínimo 6 caracteres.';
-    } elseif ($password !== $confirm_password) {
-        $errors['confirm_password'] = 'No coinciden.';
-    }
-    
-    if (empty($errors)) {
-        try {
-            $pdo = db_connect();
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
-            $stmt->execute([$formData['username'], $formData['email']]);
-            
-            if ($stmt->fetch()) {
-                $errors['general'] = 'El usuario o correo ya existe.';
-            } else {
-                $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("
-                    INSERT INTO users (username, email, password_hash, country, created_at) 
-                    VALUES (?, ?, ?, ?, NOW())
-                ");
-                $stmt->execute([$formData['username'], $formData['email'], $password_hash, $formData['country']]);
+    // P0-1: CSRF 安全校验
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $errors['general'] = 'Error de seguridad (CSRF). Por favor, recarga la página e inténtalo de nuevo.';
+    } else {
+        $formData['username'] = sanitize($_POST['username'] ?? '');
+        $formData['email'] = sanitize($_POST['email'] ?? '');
+        $formData['country'] = sanitize($_POST['country'] ?? 'ES');
+        $password = $_POST['password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+        
+        if (empty($formData['username'])) {
+            $errors['username'] = 'El nombre de usuario es obligatorio.';
+        } elseif (strlen($formData['username']) < 3) {
+            $errors['username'] = 'Mínimo 3 caracteres.';
+        }
+        
+        if (empty($formData['email'])) {
+            $errors['email'] = 'El correo es obligatorio.';
+        } elseif (!filter_var($formData['email'], FILTER_VALIDATE_EMAIL)) {
+            $errors['email'] = 'Correo no válido.';
+        }
+        
+        if (empty($password) || strlen($password) < 6) {
+            $errors['password'] = 'Mínimo 6 caracteres.';
+        } elseif ($password !== $confirm_password) {
+            $errors['confirm_password'] = 'No coinciden.';
+        }
+        
+        if (empty($errors)) {
+            try {
+                $pdo = db_connect();
+                $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+                $stmt->execute([$formData['username'], $formData['email']]);
                 
-                $user_id = $pdo->lastInsertId();
-                $_SESSION['user_id'] = $user_id;
-                $_SESSION['username'] = $formData['username'];
-                
-                $_SESSION['flash_message'] = "¡Bienvenido al Hub, " . $formData['username'] . "!";
-                header('Location: dashboard.php');
-                exit();
+                if ($stmt->fetch()) {
+                    $errors['general'] = 'El usuario o correo ya existe.';
+                } else {
+                    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                    $stmt = $pdo->prepare("
+                        INSERT INTO users (username, email, password_hash, country, created_at) 
+                        VALUES (?, ?, ?, ?, NOW())
+                    ");
+                    $stmt->execute([$formData['username'], $formData['email'], $password_hash, $formData['country']]);
+                    
+                    $user_id = $pdo->lastInsertId();
+                    $_SESSION['user_id'] = $user_id;
+                    $_SESSION['username'] = $formData['username'];
+                    
+                    $_SESSION['flash_message'] = "¡Bienvenido al Hub, " . $formData['username'] . "!";
+                    header('Location: dashboard.php');
+                    exit();
+                }
+            } catch (Exception $e) {
+                $errors['general'] = 'Error del sistema.';
             }
-        } catch (Exception $e) {
-            $errors['general'] = 'Error del sistema.';
         }
     }
 }
@@ -83,6 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST" id="registerForm" class="ink-form">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+
             <div class="ink-row">
                 <div class="ink-group">
                     <label>Usuario</label>
@@ -107,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label>Correo Electrónico</label>
                 <input type="email" name="email" value="<?php echo htmlspecialchars($formData['email']); ?>" required>
                 <?php if (isset($errors['email'])): ?>
-                    <span class="ink-err"><?php echo $errors['email']; ?></span>
+                        <span class="ink-err"><?php echo $errors['email']; ?></span>
                 <?php endif; ?>
             </div>
 
