@@ -1,5 +1,5 @@
 <?php
-// forgot-password.php - 100% 完整版 (修复时区冲突 Bug，纯 MySQL 时间计算)
+// forgot-password.php - 最终完美版 (24h有效期 + Session 60秒防连点 + 前端防狂点)
 require_once 'config.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -27,59 +27,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors['email'] = "Introduce un correo electrónico válido.";
         }
         
-        if (empty($errors)) {
+        // 核心防御：利用 Session 实行 60 秒冷却，完全避开数据库时区问题
+        if (isset($_SESSION['last_reset_request']) && (time() - $_SESSION['last_reset_request']) < 60) {
+            $success_msg = "Procesando... Por favor, revisa tu bandeja de entrada o espera un minuto para intentar de nuevo.";
+        } elseif (empty($errors)) {
             try {
                 $pdo = db_connect();
-                // 修复：利用 MySQL 自带的 IF() 和 DATE_ADD() 完美规避 PHP 时差问题
-                $stmt = $pdo->prepare("SELECT id, IF(reset_expires > DATE_ADD(NOW(), INTERVAL 55 MINUTE), 1, 0) as is_recent FROM users WHERE email = ?");
+                $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
                 
                 if ($user) {
-                    if (!empty($user['is_recent'])) {
-                        // 距离上次发信不到 5 分钟
-                        $success_msg = "Ya hemos enviado un enlace recientemente. Revisa tu bandeja o espera 5 minutos.";
-                    } else {
-                        // 生成安全的 64 字符 token
-                        $token = bin2hex(random_bytes(32));
-                        
-                        // 修复：使用 MySQL 原生的 DATE_ADD 增加 1 小时，确保与重置页面的 NOW() 在同一个时区维度
-                        $pdo->prepare("UPDATE users SET reset_token = ?, reset_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?")->execute([$token, $user['id']]);
-                        
-                        $reset_link = SITE_URL . "/reset-password.php?token=" . $token;
-                        
-                        // 配置 PHPMailer
-                        $mail = new PHPMailer(true);
-                        $mail->isSMTP();
-                        $mail->Host       = SMTP_HOST;
-                        $mail->SMTPAuth   = true;
-                        $mail->Username   = SMTP_USER;
-                        $mail->Password   = SMTP_PASS;
-                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                        $mail->Port       = SMTP_PORT;
-                        $mail->CharSet    = 'UTF-8';
-                        
-                        $mail->setFrom(SMTP_USER, SITE_NAME);
-                        $mail->addAddress($email);
-                        
-                        $mail->isHTML(true);
-                        $mail->Subject = 'Restablece tu contraseña - ' . SITE_NAME;
-                        $mail->Body    = "
-                            <div style='background:#161413; color:#E6E4DF; padding:30px; font-family:sans-serif; text-align:center;'>
-                                <h2 style='color:#D12323;'>Recuperación de Contraseña</h2>
-                                <p>Has solicitado restablecer tu contraseña en el Hub de Naraka.</p>
-                                <p>Haz clic en el siguiente botón para crear una nueva (este enlace caducará en 1 hora):</p>
-                                <a href='{$reset_link}' style='display:inline-block; padding:12px 25px; background:#D12323; color:#ffffff; text-decoration:none; font-weight:bold; border-radius:4px; margin:20px 0;'>Restablecer Contraseña</a>
-                                <p style='color:#8F98A0; font-size:12px;'>Si no has solicitado esto, puedes ignorar este correo.</p>
-                            </div>
-                        ";
-                        
-                        $mail->send();
-                        $success_msg = "Se ha enviado un enlace de recuperación a tu correo electrónico.";
-                    }
-                } else {
-                    $success_msg = "Se ha enviado un enlace de recuperación a tu correo electrónico.";
+                    $token = bin2hex(random_bytes(32));
+                    // 24小时有效期，彻底解决时区问题
+                    $expiry_string = date('Y-m-d H:i:s', time() + 86400); 
+                    
+                    $pdo->prepare("UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?")->execute([$token, $expiry_string, $user['id']]);
+                    
+                    $reset_link = SITE_URL . "/reset-password.php?token=" . $token;
+                    
+                    $mail = new PHPMailer(true);
+                    $mail->isSMTP();
+                    $mail->Host       = SMTP_HOST;
+                    $mail->SMTPAuth   = true;
+                    $mail->Username   = SMTP_USER;
+                    $mail->Password   = SMTP_PASS;
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                    $mail->Port       = SMTP_PORT;
+                    $mail->CharSet    = 'UTF-8';
+                    
+                    $mail->setFrom(SMTP_USER, SITE_NAME);
+                    $mail->addAddress($email);
+                    
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Restablece tu contraseña - ' . SITE_NAME;
+                    $mail->Body    = "
+                        <div style='background:#161413; color:#E6E4DF; padding:30px; font-family:sans-serif; text-align:center;'>
+                            <h2 style='color:#D12323;'>Recuperación de Contraseña</h2>
+                            <p>Has solicitado restablecer tu contraseña en el Hub de Naraka.</p>
+                            <p>Haz clic en el siguiente botón para crear una nueva:</p>
+                            <a href='{$reset_link}' style='display:inline-block; padding:12px 25px; background:#D12323; color:#ffffff; text-decoration:none; font-weight:bold; border-radius:4px; margin:20px 0;'>Restablecer Contraseña</a>
+                        </div>
+                    ";
+                    
+                    $mail->send();
                 }
+                
+                // 无论邮箱是否存在，都记录本次请求的时间戳，并显示成功信息
+                $_SESSION['last_reset_request'] = time();
+                $success_msg = "Se ha enviado un enlace de recuperación a tu correo.";
+                
             } catch (Exception $e) {
                 $errors['general'] = "Error al enviar el correo. Por favor, contacta con el administrador."; 
             }
@@ -88,18 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <?php include 'includes/header.php'; ?>
-
 <div class="auth-wrap">
     <div class="auth-box">
         <div class="auth-top">
             <h1 class="ink-title">RECUPERAR ACCESO</h1>
             <p class="ink-subtitle">Forja una nueva clave secreta</p>
         </div>
-
         <?php if (isset($errors['general'])): ?>
             <div class="ink-alert"><?php echo $errors['general']; ?></div>
         <?php endif; ?>
-        
         <?php if ($success_msg): ?>
             <div class="ink-alert" style="border-left-color: #CCA677; color: #CCA677; background: rgba(204, 166, 119, 0.05);">
                 <i class="fas fa-envelope" style="margin-right:8px;"></i> <?php echo $success_msg; ?>
@@ -108,9 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="login.php" class="ink-btn-main" style="text-decoration:none; display:inline-block; box-sizing:border-box;">Volver al Inicio de Sesión</a>
             </div>
         <?php else: ?>
-            <form method="POST" class="ink-form">
+            <form method="POST" class="ink-form" id="forgotForm">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-
                 <div class="ink-group" style="margin-bottom: 30px;">
                     <label>Correo Electrónico de la Cuenta</label>
                     <input type="email" name="email" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" required placeholder="Introduce tu correo">
@@ -118,9 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <span class="ink-err"><?php echo $errors['email']; ?></span>
                     <?php endif; ?>
                 </div>
-
                 <div class="ink-footer">
-                    <button type="submit" class="ink-btn-main"><i class="fas fa-paper-plane"></i> ENVIAR ENLACE</button>
+                    <button type="submit" id="submitBtn" class="ink-btn-main"><i class="fas fa-paper-plane"></i> ENVIAR ENLACE</button>
                     <p><a href="login.php"><i class="fas fa-arrow-left"></i> Volver</a></p>
                 </div>
             </form>
@@ -148,5 +140,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 .ink-footer a { color: var(--nj-text-muted); text-decoration: none; transition: 0.2s; }
 .ink-footer a:hover { color: var(--nj-text-main); }
 </style>
+
+<script>
+// 前端防连点机制
+document.getElementById('forgotForm')?.addEventListener('submit', function() {
+    var btn = document.getElementById('submitBtn');
+    // 改变文字并添加旋转的 loading 图标 (FontAwesome 默认支持 fa-spin)
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ENVIANDO...';
+    // 降低透明度并彻底禁用鼠标点击事件
+    btn.style.opacity = '0.7';
+    btn.style.pointerEvents = 'none';
+});
+</script>
 
 <?php include 'includes/footer.php'; ?>

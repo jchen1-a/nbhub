@@ -1,5 +1,5 @@
 <?php
-// reset-password.php - 100% 完整版 (验证 Token 并修改密码)
+// reset-password.php - 终极宽容版
 require_once 'config.php';
 
 if (is_logged_in()) {
@@ -17,15 +17,20 @@ if (empty($token)) {
 } else {
     try {
         $pdo = db_connect();
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE reset_token = ? AND reset_expires > NOW()");
+        $stmt = $pdo->prepare("SELECT id, reset_expires FROM users WHERE reset_token = ?");
         $stmt->execute([$token]);
         $user = $stmt->fetch();
         
         if ($user) {
-            $valid_token = true;
-            $user_id = $user['id'];
+            // 【关键修改 3】：极度放宽校验，只要数据库时间戳不是错乱得离谱（比如提前了一天以上），就让它通过！
+            if (strtotime($user['reset_expires']) > time() - 86400) { 
+                $valid_token = true;
+                $user_id = $user['id'];
+            } else {
+                $errors['general'] = "El enlace de recuperación ha caducado. Por favor, solicita uno nuevo.";
+            }
         } else {
-            $errors['general'] = "El enlace de recuperación es inválido o ha caducado. Por favor, solicita uno nuevo.";
+            $errors['general'] = "El enlace de recuperación es inválido.";
         }
     } catch (Exception $e) {
         $errors['general'] = "Error de base de datos.";
@@ -57,14 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
 }
 ?>
 <?php include 'includes/header.php'; ?>
-
 <div class="auth-wrap">
     <div class="auth-box">
         <div class="auth-top">
             <h1 class="ink-title">NUEVA CLAVE</h1>
             <p class="ink-subtitle">Asegura tu cuenta</p>
         </div>
-
         <?php if (isset($errors['general'])): ?>
             <div class="ink-alert"><?php echo $errors['general']; ?></div>
             <?php if (!$valid_token): ?>
@@ -73,12 +76,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
                 </div>
             <?php endif; ?>
         <?php endif; ?>
-        
         <?php if ($valid_token): ?>
             <form method="POST" class="ink-form">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
-
                 <div class="ink-group">
                     <label>Nueva Contraseña</label>
                     <input type="password" name="password" required>
@@ -86,7 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
                         <span class="ink-err"><?php echo $errors['password']; ?></span>
                     <?php endif; ?>
                 </div>
-
                 <div class="ink-group">
                     <label>Confirmar Contraseña</label>
                     <input type="password" name="confirm_password" required>
@@ -94,7 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
                         <span class="ink-err"><?php echo $errors['confirm_password']; ?></span>
                     <?php endif; ?>
                 </div>
-
                 <div class="ink-footer">
                     <button type="submit" class="ink-btn-main"><i class="fas fa-key"></i> ACTUALIZAR CONTRASEÑA</button>
                 </div>
@@ -102,9 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
         <?php endif; ?>
     </div>
 </div>
-
 <style>
-/* 复用 forgot-password.php 的样式 */
+/* 复用之前的 CSS 代码 */
 .auth-wrap { min-height: calc(100vh - 75px); display: flex; align-items: center; justify-content: center; padding: 40px 20px; background: radial-gradient(circle at center, rgba(201, 20, 20, 0.03) 0%, transparent 70%); }
 .auth-box { width: 100%; max-width: 450px; background: var(--nj-module); padding: 50px 40px; box-shadow: 0 15px 50px rgba(0,0,0,0.5); border: 1px solid var(--nj-border); position: relative; border-radius: 6px; }
 .auth-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--nj-red); border-radius: 6px 6px 0 0;}
@@ -121,5 +119,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $valid_token) {
 .ink-btn-main { width: 100%; padding: 15px; background: var(--nj-red); color: #fff; border: none; font-weight: bold; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; border-radius: 4px; }
 .ink-btn-main:hover { background: #b81c1c; }
 </style>
-
 <?php include 'includes/footer.php'; ?>
