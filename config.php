@@ -198,6 +198,6 @@ if (IS_DEV) {
 define('SMTP_HOST', 'smtp.gmail.com');
 define('SMTP_PORT', 587); // TLS 端口
 define('SMTP_USER', 'chji351327@gmail.com'); // 【修改这里】填写你发信的 Gmail 邮箱
-define('SMTP_PASS', 'zmvxpdijokenbjqp');    // 【修改这里】填写你的应用专用密码 (注意：必须删掉所有空格)
+define('SMTP_PASS', 'incenhbqtsviqbug');    // 【修改这里】填写你的应用专用密码 (注意：必须删掉所有空格)
 define('SITE_EMAIL', 'no-reply@narakahub.com'); // 显示的发件人邮箱
 ?>
