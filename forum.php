@@ -1,5 +1,5 @@
 <?php
-// forum.php - Naraka Dark Wuxia (Steam 规整布局 + 官方暖暗配色卡)
+// forum.php - Naraka Dark Wuxia (带权重计算的 Popular 热门排序 100% 完整版)
 require_once 'config.php';
 
 // 辅助函数：正常的国旗emoji
@@ -32,6 +32,7 @@ try {
     if (!empty($category) && $category !== 'all') { $where[] = "category = ?"; $params[] = $category; }
     $where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
     
+    // 计算总帖子数
     $count_sql = "SELECT COUNT(*) as total FROM forum_posts $where_sql";
     $count_stmt = $pdo->prepare($count_sql);
     $count_stmt->execute($params);
@@ -39,18 +40,31 @@ try {
     $total_pages = ceil($total_posts / $per_page);
     
     $offset = ($current_page - 1) * $per_page;
+    
+    // P1-4: 动态计算 SQL 排序规则 (包含热度公式)
+    $order_by = "p.is_pinned DESC, p.last_reply_at DESC"; // 默认排序
+    if ($sort === 'popular') {
+        // 热度分数 = 浏览量 + (点赞 * 10) + (收藏 * 15) + (回复数 * 20)
+        $order_by = "p.is_pinned DESC, heat_score DESC, p.last_reply_at DESC";
+    }
+
     $posts_sql = "
         SELECT p.*, u.username as author_name, u.country as author_country,
                (SELECT COUNT(*) FROM forum_replies WHERE post_id = p.id) as reply_count,
                (SELECT username FROM users WHERE id = p.last_reply_by) as last_replier,
-               p.last_reply_at
+               p.last_reply_at,
+               -- 计算动态热度分数，防止 SQL 报错用别名包裹
+               (p.views + (p.likes_count * 10) + (p.bookmarks_count * 15) + ((SELECT COUNT(*) FROM forum_replies WHERE post_id = p.id) * 20)) as heat_score
         FROM forum_posts p LEFT JOIN users u ON p.user_id = u.id
-        $where_sql ORDER BY p.is_pinned DESC, p.last_reply_at DESC
+        $where_sql 
+        ORDER BY $order_by
         LIMIT " . (int)$per_page . " OFFSET " . (int)$offset;
+        
     $posts_stmt = $pdo->prepare($posts_sql);
     $posts_stmt->execute($params);
     $posts = $posts_stmt->fetchAll();
     
+    // 获取分类统计
     $categories = $pdo->query("SELECT category, COUNT(*) as count FROM forum_posts GROUP BY category ORDER BY count DESC")->fetchAll();
     
 } catch (Exception $e) { $error = "Error de base de datos: " . $e->getMessage(); }
@@ -167,8 +181,9 @@ try {
                                 </div>
                                 
                                 <div class="col-stats row-stats">
-                                    <div class="stat-line"><i class="fas fa-comment"></i> <?php echo $post['reply_count']; ?></div>
-                                    <div class="stat-line"><i class="fas fa-eye"></i> <?php echo $post['views'] ?? 0; ?></div>
+                                    <div class="stat-line" title="Respuestas"><i class="fas fa-comment"></i> <?php echo $post['reply_count']; ?></div>
+                                    <div class="stat-line" title="Me gusta" style="color: var(--nj-red); opacity: 0.9;"><i class="fas fa-heart"></i> <?php echo $post['likes_count'] ?? 0; ?></div>
+                                    <div class="stat-line" title="Vistas"><i class="fas fa-eye"></i> <?php echo $post['views'] ?? 0; ?></div>
                                 </div>
                                 
                                 <div class="col-last row-last">
@@ -214,19 +229,14 @@ try {
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&display=swap');
 
 :root {
-    /* 提取自官方图的“暖暗色调” */
-    --nj-bg: #0B0A0A;              /* 极深的碳黑 (带有一丝暖意) */
-    --nj-module: #161413;          /* 暗岩灰/黑褐色 */
-    --nj-module-hover: #211E1C;    /* 模块悬停色 (略亮的暖灰) */
-    
-    --nj-red: #D12323;             /* 官方殷红/血红 (高饱和明亮) */
-    --nj-gold: #CCA677;            /* 黯金/青铜色 */
-    
-    --nj-border: #2D2926;          /* 暖色调的深灰边框 */
-    
-    --nj-text-main: #E6E4DF;       /* 骨白/宣纸白 (极其柔和的阅读色) */
-    --nj-text-muted: #9C9791;      /* 偏泥土色的暗灰，替代原本偏冷的蓝灰 */
-    
+    --nj-bg: #0B0A0A;              
+    --nj-module: #161413;          
+    --nj-module-hover: #211E1C;    
+    --nj-red: #D12323;             
+    --nj-gold: #CCA677;            
+    --nj-border: #2D2926;          
+    --nj-text-main: #E6E4DF;       
+    --nj-text-muted: #9C9791;      
     --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-deco: 'Noto Serif SC', serif;
 }
@@ -239,7 +249,6 @@ body {
     overflow-x: hidden;
 }
 
-/* 暖色环境光背景，彻底剔除高斯模糊，0性能损耗 */
 .nj-static-bg {
     position: fixed; inset: 0; z-index: -10;
     background-color: var(--nj-bg);
@@ -256,7 +265,6 @@ body {
 
 .nj-app-container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100vh; padding: 0 20px;}
 
-/* ==== 顶部横向 (Logo + 搜索) ==== */
 .nj-app-header { display: flex; align-items: center; justify-content: space-between; padding: 30px 0; border-bottom: 1px solid var(--nj-border); margin-bottom: 30px;}
 .nj-brand { display: flex; align-items: center; gap: 15px;}
 .nj-logo-icon { width: 40px; height: 40px; background: var(--nj-red); color: #fff; display: flex; justify-content: center; align-items: center; font-family: var(--font-deco); font-size: 1.4em; border-radius: 4px; font-weight: 900; box-shadow: 0 0 10px rgba(209, 35, 35, 0.3);}
@@ -270,10 +278,8 @@ body {
 .nj-search-btn { background: var(--nj-module); border: none; border-left: 1px solid var(--nj-border); color: var(--nj-text-muted); padding: 0 15px; cursor: pointer; transition: 0.2s;}
 .nj-search-btn:hover { color: var(--nj-text-main); background: var(--nj-module-hover);}
 
-/* ==== 主体网格布局 ==== */
 .nj-app-body { display: flex; gap: 30px; align-items: flex-start; flex: 1; }
 
-/* 左侧边栏 */
 .nj-app-sidebar { width: 240px; flex-shrink: 0; position: sticky; top: 30px;}
 .nj-sidebar-section { margin-bottom: 30px; }
 .nj-sidebar-title { font-size: 0.8em; color: var(--nj-text-main); margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid var(--nj-border); font-weight: bold; letter-spacing: 1px;}
@@ -294,7 +300,6 @@ body {
 
 .action-bounce:active { transform: scale(0.97); }
 
-/* ==== 主体列表 ==== */
 .nj-app-main { flex: 1; min-width: 0; background: var(--nj-module); border: 1px solid var(--nj-border); border-radius: 4px; padding: 15px;}
 
 .nj-list-header { display: flex; padding: 10px 15px; font-size: 0.75em; color: var(--nj-text-muted); border-bottom: 2px solid var(--nj-border); font-weight: bold; letter-spacing: 1px;}
@@ -308,7 +313,6 @@ body {
     display: flex; padding: 15px; border-bottom: 1px solid var(--nj-border);
     text-decoration: none; transition: background 0.1s, border-left 0.1s;
     border-left: 3px solid transparent;
-    
     opacity: 0; transform: translateY(10px);
     animation: cascadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     animation-delay: calc(var(--i) * 0.04s);
@@ -317,7 +321,6 @@ body {
 
 .nj-list-row:hover { background-color: var(--nj-module-hover); border-left-color: var(--nj-gold); }
 
-/* 置顶特化色调 */
 .is-pinned { background-color: rgba(204, 166, 119, 0.05); }
 .is-pinned:hover { background-color: rgba(204, 166, 119, 0.1); }
 .pin-icon { color: var(--nj-gold); font-size: 1.2em;}
@@ -334,12 +337,11 @@ body {
 .cat-badge { background: rgba(0,0,0,0.3); border: 1px solid var(--nj-border); padding: 2px 6px; border-radius: 3px; font-size: 0.9em; color: var(--nj-gold);}
 .author-name { color: #B3AEA8; }
 
-.row-stats { display: flex; flex-direction: column; justify-content: center; gap: 3px; font-size: 0.8em; color: var(--nj-text-muted);}
+.row-stats { display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 0.8em; color: var(--nj-text-muted);}
 .row-last { display: flex; flex-direction: column; justify-content: center; gap: 3px; font-size: 0.85em; color: var(--nj-text-muted);}
 .last-time { color: var(--nj-text-main); }
 .last-user { font-size: 0.9em; }
 
-/* 分页 */
 .nj-pagination-bar { display: flex; justify-content: flex-end; gap: 5px; margin-top: 20px; padding: 10px 0;}
 .nj-page-link { display: inline-block; padding: 5px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--nj-border); color: var(--nj-text-main); text-decoration: none; font-size: 0.85em; border-radius: 3px; transition: 0.2s;}
 .nj-page-link:hover, .nj-page-link.active { background: var(--nj-gold); color: var(--nj-bg); border-color: var(--nj-gold); font-weight: bold;}
@@ -350,7 +352,6 @@ body {
 
 @keyframes cascadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* 响应式降级 */
 @media (max-width: 900px) {
     .nj-app-body { flex-direction: column; }
     .nj-app-sidebar { width: 100%; position: static; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between;}
@@ -358,7 +359,6 @@ body {
     .nj-sidebar-section:first-child { display: flex; gap: 10px; }
     .nj-tree-nav { flex-direction: row; flex-wrap: wrap; }
     .nj-app-main { width: 100%; box-sizing: border-box;}
-    
     .col-stats, .col-last { display: none; }
     .row-title { max-width: 250px; }
 }

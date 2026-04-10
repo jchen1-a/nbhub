@@ -1,8 +1,7 @@
 <?php
-// forgot-password.php - 100% 完整版 (真实SMTP发信 + CSRF + 节流防护)
+// forgot-password.php - 100% 完整版 (修复时区冲突 Bug，纯 MySQL 时间计算)
 require_once 'config.php';
 
-// 引入 PHPMailer 核心类
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
@@ -31,21 +30,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($errors)) {
             try {
                 $pdo = db_connect();
-                // 防刷信箱节流：检查该邮箱过去 5 分钟内是否已经请求过
-                $stmt = $pdo->prepare("SELECT id, reset_expires FROM users WHERE email = ?");
+                // 修复：利用 MySQL 自带的 IF() 和 DATE_ADD() 完美规避 PHP 时差问题
+                $stmt = $pdo->prepare("SELECT id, IF(reset_expires > DATE_ADD(NOW(), INTERVAL 55 MINUTE), 1, 0) as is_recent FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
                 
                 if ($user) {
-                    if ($user['reset_expires'] && strtotime($user['reset_expires']) > (time() + 3300)) {
-                        // 设定的过期时间是 1 小时 (3600秒)，如果剩余时间大于 3300秒，说明是过去 5 分钟内刚发的
+                    if (!empty($user['is_recent'])) {
+                        // 距离上次发信不到 5 分钟
                         $success_msg = "Ya hemos enviado un enlace recientemente. Revisa tu bandeja o espera 5 minutos.";
                     } else {
                         // 生成安全的 64 字符 token
                         $token = bin2hex(random_bytes(32));
-                        $expires = date('Y-m-d H:i:s', time() + 3600); // 1小时后过期
                         
-                        $pdo->prepare("UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?")->execute([$token, $expires, $user['id']]);
+                        // 修复：使用 MySQL 原生的 DATE_ADD 增加 1 小时，确保与重置页面的 NOW() 在同一个时区维度
+                        $pdo->prepare("UPDATE users SET reset_token = ?, reset_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?")->execute([$token, $user['id']]);
                         
                         $reset_link = SITE_URL . "/reset-password.php?token=" . $token;
                         
@@ -79,11 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $success_msg = "Se ha enviado un enlace de recuperación a tu correo electrónico.";
                     }
                 } else {
-                    // 邮箱不存在，但显示一样的成功信息（防止恶意用户探测邮箱是否存在）
                     $success_msg = "Se ha enviado un enlace de recuperación a tu correo electrónico.";
                 }
             } catch (Exception $e) {
-                // 仅在开发时打印 $e->getMessage()，生产环境建议隐藏具体邮件错误
                 $errors['general'] = "Error al enviar el correo. Por favor, contacta con el administrador."; 
             }
         }
@@ -132,7 +129,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <style>
-/* 继承 auth-box 样式 */
 .auth-wrap { min-height: calc(100vh - 75px); display: flex; align-items: center; justify-content: center; padding: 40px 20px; background: radial-gradient(circle at center, rgba(201, 20, 20, 0.03) 0%, transparent 70%); }
 .auth-box { width: 100%; max-width: 450px; background: var(--nj-module); padding: 50px 40px; box-shadow: 0 15px 50px rgba(0,0,0,0.5); border: 1px solid var(--nj-border); position: relative; border-radius: 6px; }
 .auth-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--nj-red); border-radius: 6px 6px 0 0;}
