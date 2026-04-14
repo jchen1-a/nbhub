@@ -32,408 +32,305 @@ if (isset($_SESSION['user_id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naraka Hub</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* 强制覆盖及隔离页眉全局样式，同时排除对 <i> 标签（图标）的影响 */
+        .nj-global-header, .nj-global-header * {
+            box-sizing: border-box;
+        }
+        .nj-global-header *:not(i) {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+        }
+        
         :root {
-            --primary: #0a0a0c;
-            --accent: #c91414;
-            --text: #1a1a1a;
-            --bg: #e2e4e9;
-            --danger: #d32f2f;
-            --success: #2e7d32;
-            --warning: #f57f17;
-        }
-        
-        * { box-sizing: border-box; }
-        
-        body { 
-            margin: 0; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: var(--bg); 
-            color: var(--text); 
-            line-height: 1.6; 
-        }
-        
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Cinzel', 'Noto Serif SC', serif;
-            font-weight: 800;
-            color: var(--primary);
-            letter-spacing: 0.5px;
+            --nj-bg: #0B0A0A;
+            --nj-module: #161413;
+            --nj-module-hover: #1E1B19;
+            --nj-red: #D12323;
+            --nj-gold: #CCA677;
+            --nj-border: #2D2926;
+            --nj-text-main: #E6E4DF;
+            --nj-text-muted: #8F98A0;
         }
 
-        .container { 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            padding: 20px; 
+        body {
+            background-color: var(--nj-bg);
+            color: var(--nj-text-main);
+            margin: 0;
+            padding: 0;
         }
         
-        a { 
-            text-decoration: none; 
-            color: var(--accent); 
-            transition: all 0.3s ease; 
-        }
-
-        .card, .wiki-card, .post-card { 
-            background: white; 
-            border-radius: 2px; 
-            box-shadow: 0 8px 25px rgba(0,0,0,0.04); 
-            margin-bottom: 25px; 
-            overflow: hidden; 
-            border: 1px solid rgba(0,0,0,0.05); 
-        }
-        
-        .card-header { 
-            padding: 20px 25px; 
-            border-bottom: 1px solid rgba(0,0,0,0.04); 
-            background: #fff; 
-            margin: 0; 
-        }
-        
-        .card-body { 
-            padding: 25px; 
-        }
-        
-        .btn, .btn-primary { 
-            display: inline-flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 8px; 
-            padding: 10px 24px; 
-            background: var(--accent); 
-            color: white; 
-            border: 1px solid var(--accent); 
-            border-radius: 2px; 
-            cursor: pointer; 
-            font-family: 'Cinzel', 'Noto Serif SC', serif; 
-            font-weight: 600; 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-            text-decoration: none; 
-            font-size: 0.95em; 
-            letter-spacing: 1px; 
-            text-transform: uppercase;
-        }
-        
-        .btn:hover, .btn-primary:hover { 
-            background: #900a0a; 
-            border-color: #900a0a;
-            box-shadow: 0 4px 15px rgba(201, 20, 20, 0.3); 
-            transform: translateY(-1px); 
-        }
-        
-        .btn-outline { 
-            background: transparent; 
-            color: var(--accent); 
-            border: 1px solid var(--accent); 
-        }
-        
-        .btn-outline:hover { 
-            background: var(--accent); 
-            color: white; 
-            box-shadow: 0 4px 15px rgba(201, 20, 20, 0.2);
-        }
-
-        .navbar { 
-            background: rgba(10, 10, 12, 0.95); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            padding: 0 40px; 
-            height: 75px;
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3); 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
+        /* 半透明磨砂页眉 */
+        .nj-global-header {
+            background-color: rgba(11, 10, 10, 0.85);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             position: sticky;
             top: 0;
             z-index: 1000;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
         }
         
-        .nav-brand { 
-            font-family: 'Cinzel', 'Noto Serif SC', serif; 
-            font-size: 1.6em; 
-            font-weight: 800; 
-            color: #fff; 
-            letter-spacing: 3px;
-            text-transform: uppercase;
+        .nj-header-container {
+            max-width: 1400px; 
+            margin: 0 auto;
+            padding: 0 30px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr; 
+            align-items: center;
+            height: 90px; 
+        }
+        
+        /* Logo (已移除手柄) */
+        .nj-logo {
+            justify-self: start;
+            font-size: 1.8em; 
+            font-weight: 900;
+            color: var(--nj-text-main);
+            text-decoration: none;
+            letter-spacing: 2px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            transition: color 0.3s;
+            gap: 8px;
         }
         
-        .nav-brand i {
-            color: var(--accent);
-            font-size: 0.9em;
+        .nj-logo span {
+            color: var(--nj-red);
         }
         
-        .nav-brand:hover {
-            color: #ddd;
+        /* 全局导航 */
+        .nj-nav-links {
+            justify-self: center;
+            display: flex;
+            gap: 40px; 
+            align-items: center;
         }
         
-        .nav-links { 
-            display: flex; 
-            gap: 35px; 
-            align-items: center; 
-            height: 100%;
-        }
-        
-        .nav-links > a { 
-            color: #999; 
-            text-decoration: none; 
-            font-family: 'Cinzel', 'Noto Serif SC', serif; 
-            font-weight: 600; 
-            font-size: 0.85em; 
-            letter-spacing: 1.5px; 
+        .nj-nav-links a {
+            color: var(--nj-text-muted);
+            text-decoration: none;
+            font-size: 1.1em; 
+            font-weight: 600;
+            transition: color 0.2s;
             text-transform: uppercase;
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            height: 100%;
+            letter-spacing: 1px;
             position: relative;
-            transition: color 0.3s;
         }
         
-        .nav-links > a i {
-            font-size: 1.1em;
-            margin-top: -2px;
-            color: #777;
-            transition: color 0.3s;
+        .nj-nav-links a:hover, .nj-nav-links a.active {
+            color: var(--nj-text-main);
         }
         
-        .nav-links > a:hover { 
-            color: #fff; 
-        }
-        
-        .nav-links > a:hover i {
-            color: var(--accent);
-        }
-        
-        .nav-links > a::after {
+        .nj-nav-links a::after {
             content: '';
             position: absolute;
-            bottom: 0;
-            left: 50%;
             width: 0;
             height: 2px;
-            background: var(--accent);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: translateX(-50%);
+            bottom: -5px;
+            left: 0;
+            background-color: var(--nj-red);
+            transition: 0.2s ease;
         }
         
-        .nav-links > a:hover::after {
+        .nj-nav-links a:hover::after {
             width: 100%;
         }
         
-        .user-menu { 
-            position: relative; 
-            display: inline-flex; 
-            align-items: center;
-            height: 100%;
-            cursor: pointer; 
+        /* 右侧用户控件 */
+        .nj-user-menu {
+            justify-self: end;
         }
         
-        .user-menu::after { 
-            content: ''; 
-            position: absolute; 
-            top: 100%; 
-            left: 0; 
-            width: 100%; 
-            height: 20px; 
-            background: transparent; 
-            z-index: 999; 
-        }
-
-        .user-menu-btn { 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            color: #fff; 
-            background: transparent; 
-            padding: 8px 16px; 
-            border-radius: 2px; 
-            transition: all 0.3s; 
-            border: 1px solid rgba(255,255,255,0.1); 
-            font-family: 'Cinzel', 'Noto Serif SC', serif;
-            font-weight: 600;
-            letter-spacing: 1px;
-            font-size: 0.85em;
+        .nj-user-dropdown {
+            position: relative;
+            display: inline-block;
         }
         
-        .user-menu:hover .user-menu-btn { 
-            border-color: var(--accent);
-            background: rgba(201, 20, 20, 0.05); 
-        }
-        
-        .user-menu-btn.admin-glow { 
-            border-color: rgba(245, 127, 23, 0.4); 
-            color: #ffeb3b; 
-        }
-        
-        .user-menu:hover .user-menu-btn.admin-glow { 
-            background: rgba(245, 127, 23, 0.08); 
-            border-color: #f57f17; 
-        }
-        
-        .dropdown-content { 
-            display: none; 
-            position: absolute; 
-            right: 0; 
-            top: calc(100% - 5px); 
-            background-color: rgba(12, 12, 14, 0.98); 
-            backdrop-filter: blur(10px);
-            min-width: 220px; 
-            box-shadow: 0px 10px 30px rgba(0,0,0,0.5); 
-            z-index: 1000; 
-            border-radius: 2px; 
-            border: 1px solid rgba(255,255,255,0.05);
-            overflow: hidden; 
-            animation: fadeIn 0.2s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .dropdown-content a { 
-            color: #bbb; 
-            padding: 14px 20px; 
-            text-decoration: none; 
-            display: block; 
-            font-size: 0.9em; 
-            border-bottom: 1px solid rgba(255,255,255,0.03); 
-            transition: all 0.2s; 
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-        }
-        
-        .dropdown-content a i {
-            margin-right: 10px;
-            width: 16px;
-            text-align: center;
-            color: #666;
-            transition: color 0.2s;
-        }
-        
-        .dropdown-content a:hover { 
-            background-color: rgba(201, 20, 20, 0.08); 
-            color: #fff; 
-            padding-left: 26px; 
-            border-left: 2px solid var(--accent); 
-        }
-        
-        .dropdown-content a:hover i {
-            color: var(--accent);
-        }
-        
-        .user-menu:hover .dropdown-content { 
-            display: block; 
-        }
-
-        .nav-login-btn {
+        .nj-user-btn {
             background: transparent;
-            color: var(--accent);
-            border: 1px solid var(--accent);
-            padding: 8px 24px;
-            border-radius: 2px;
-            font-family: 'Cinzel', 'Noto Serif SC', serif;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--nj-text-main);
+            padding: 12px 24px; 
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 1.05em; 
             font-weight: 600;
-            letter-spacing: 1px;
-            font-size: 0.85em;
-            text-transform: uppercase;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nj-user-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--nj-gold);
+        }
+        
+        .nj-btn-login {
+            background: var(--nj-red);
+            color: #fff;
+            border-color: var(--nj-red);
+        }
+        
+        .nj-btn-login:hover {
+            background: #b81c1c;
+            border-color: #b81c1c;
+            transform: translateY(-1px);
         }
 
-        .nav-login-btn:hover {
-            background: var(--accent);
-            color: #fff;
-            box-shadow: 0 0 15px rgba(201, 20, 20, 0.3);
+        /* 下拉菜单面板 */
+        .nj-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 10px;
+            background-color: var(--nj-module);
+            min-width: 220px; 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            border: 1px solid var(--nj-border);
+            border-radius: 6px;
+            z-index: 1000;
         }
         
-        .alert { 
+        /* 悬浮桥 (修复下拉丢失 Bug) */
+        .nj-dropdown-content::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            width: 100%;
+            height: 15px;
+            background: transparent;
+        }
+
+        .nj-user-dropdown:hover .nj-dropdown-content {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        .nj-dropdown-content a {
+            color: var(--nj-text-muted);
             padding: 15px 20px; 
-            margin-bottom: 25px; 
-            border-radius: 2px; 
-            font-weight: 600; 
-            border-left: 4px solid; 
-            animation: slideIn 0.3s ease-out; 
-            font-family: 'Segoe UI', sans-serif;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95em; 
+            border-bottom: 1px solid var(--nj-border);
+            transition: background 0.2s, color 0.2s;
         }
         
-        @keyframes slideIn { 
-            from { transform: translateX(-20px); opacity: 0; } 
-            to { transform: translateX(0); opacity: 1; } 
+        .nj-dropdown-content a:last-child {
+            border-bottom: none;
         }
         
-        .alert-success { 
-            background: #fff; 
-            color: var(--success); 
-            border-left-color: var(--success); 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        .nj-dropdown-content a:hover {
+            background-color: var(--nj-module-hover);
+            color: var(--nj-text-main);
         }
         
-        .alert-error { 
-            background: #fff; 
-            color: var(--accent); 
-            border-left-color: var(--accent); 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        /* 修复下拉菜单图标不显示的问题 */
+        .nj-dropdown-content a i {
+            width: 18px;
+            text-align: center;
+            color: var(--nj-text-main); /* 设为高亮度色 */
+            transition: color 0.2s;
+            display: inline-block;
+        }
+        
+        .nj-dropdown-content a:hover i {
+            color: var(--nj-gold);
+        }
+        
+        .nj-dropdown-content a.danger-link:hover, 
+        .nj-dropdown-content a.danger-link:hover i {
+            color: var(--nj-red);
+        }
+
+        .nj-global-alert {
+            max-width: 1200px;
+            margin: 20px auto 0;
+            padding: 15px 20px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nj-alert-success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #4caf50;
+        }
+        
+        .nj-alert-error {
+            background: rgba(209, 35, 35, 0.1);
+            border: 1px solid var(--nj-red);
+            color: var(--nj-text-main);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         @media (max-width: 900px) {
-            .navbar { padding: 0 20px; height: 65px; }
-            .nav-brand { font-size: 1.3em; letter-spacing: 2px; }
-            .nav-links > a { display: none; }
-            .nav-links > a.show-mobile { display: flex; }
+            .nj-header-container {
+                grid-template-columns: 1fr auto;
+            }
+            .nj-nav-links { display: none; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <a href="index.php" class="nav-brand"><i class="fas fa-gamepad"></i> Naraka Hub</a>
-        <div class="nav-links">
-            <a href="index.php"><i class="fas fa-home"></i> Inicio</a>
-            <a href="wiki.php"><i class="fas fa-book"></i> Wiki</a>
-            <a href="guides.php"><i class="fas fa-graduation-cap"></i> Guías</a>
-            <a href="forum.php"><i class="fas fa-comments"></i> Foro</a>
-            
+
+<header class="nj-global-header">
+    <div class="nj-header-container">
+        <a href="index.php" class="nj-logo">NARAKA <span>HUB</span></a>
+        
+        <nav class="nj-nav-links">
+            <a href="index.php">Inicio</a>
+            <a href="wiki.php">Wiki</a>
+            <a href="guides.php">Guías</a>
+            <a href="forum.php">Foro</a>
+        </nav>
+        
+        <div class="nj-user-menu">
             <?php if (isset($_SESSION['user_id'])): ?>
-                <div class="user-menu">
-                    <div class="user-menu-btn <?php echo $is_admin ? 'admin-glow' : ''; ?>">
-                        <i class="fas <?php echo $is_admin ? 'fa-user-shield' : 'fa-user-circle'; ?>"></i> 
-                        <span><?php echo htmlspecialchars($header_username); ?></span>
-                        <i class="fas fa-chevron-down" style="font-size: 0.8em; margin-left: 4px;"></i>
+                <div class="nj-user-dropdown">
+                    <div class="nj-user-btn">
+                        <i class="fas fa-user-circle" style="color: var(--nj-text-muted);"></i> 
+                        <?php echo htmlspecialchars($header_username); ?>
+                        <i class="fas fa-chevron-down" style="font-size: 0.8em; margin-left: 5px; color: var(--nj-text-muted);"></i>
                     </div>
-                    <div class="dropdown-content">
+                    <div class="nj-dropdown-content">
                         <?php if ($is_admin): ?>
-                            <a href="admin.php" style="color: #f57f17; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <i class="fas fa-shield-alt"></i> Panel de Admin
-                            </a>
+                            <a href="admin.php"><i class="fas fa-shield-alt"></i> Panel de Admin</a>
                         <?php endif; ?>
                         <a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Panel de Usuario</a>
                         <a href="profile.php"><i class="fas fa-id-badge"></i> Mi Perfil</a>
                         <a href="edit-profile.php"><i class="fas fa-user-cog"></i> Editar Perfil</a>
-                        <a href="logout.php" style="color: #ff4444;"><i class="fas fa-sign-out-alt" style="color: #ff4444;"></i> Cerrar Sesión</a>
+                        <a href="logout.php" class="danger-link"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a>
                     </div>
                 </div>
             <?php else: ?>
-                <a href="login.php" class="nav-login-btn show-mobile">Iniciar Sesión</a>
+                <a href="login.php" class="nj-user-btn nj-btn-login">Iniciar Sesión</a>
             <?php endif; ?>
         </div>
-    </nav>
-    
-    <?php if (isset($_SESSION['flash_message'])): ?>
-        <div class="container">
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle" style="margin-right: 8px;"></i> <?php echo $_SESSION['flash_message']; ?>
-                <?php unset($_SESSION['flash_message']); ?>
-            </div>
-        </div>
-    <?php endif; ?>
-    
-    <?php if (isset($_SESSION['flash_error'])): ?>
-        <div class="container">
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i> <?php echo $_SESSION['flash_error']; ?>
-                <?php unset($_SESSION['flash_error']); ?>
-            </div>
-        </div>
-    <?php endif; ?>
+    </div>
+</header>
+
+<?php if (isset($_SESSION['flash_message'])): ?>
+    <div class="nj-global-alert nj-alert-success">
+        <i class="fas fa-check-circle"></i> <?php echo $_SESSION['flash_message']; unset($_SESSION['flash_message']); ?>
+    </div>
+<?php endif; ?>
+
+<?php if (isset($_SESSION['flash_error'])): ?>
+    <div class="nj-global-alert nj-alert-error">
+        <i class="fas fa-exclamation-circle"></i> <?php echo $_SESSION['flash_error']; unset($_SESSION['flash_error']); ?>
+    </div>
+<?php endif; ?>
