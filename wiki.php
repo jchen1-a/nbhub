@@ -1,5 +1,5 @@
 <?php
-// wiki.php - 100% 完整版 (精准修复 Sticky 滑移，0延迟瞬间锁定)
+// wiki.php - 100% 完整版 (精准修复 Sticky 滑移，0延迟瞬间锁定，修复重音字母大写)
 require_once 'config.php';
 
 $categories = [];
@@ -85,7 +85,7 @@ try {
                 <li>
                     <a href="wiki.php?category=<?php echo $cat['id']; ?>" class="ink-menu-item <?php echo $filter_category == $cat['id'] ? 'active' : ''; ?>">
                         <span class="idx"><?php echo $cn_numbers[$i] ?? str_pad($i+1, 2, '0', STR_PAD_LEFT); ?></span>
-                        <span class="name"><?php echo htmlspecialchars(strtoupper($cat['name'])); ?></span>
+                        <span class="name"><?php echo htmlspecialchars(mb_strtoupper($cat['name'], 'UTF-8')); ?></span>
                     </a>
                 </li>
             <?php $i++; endforeach; ?>
@@ -146,7 +146,7 @@ try {
                         <?php foreach($search_results as $res): ?>
                             <a href="wiki-article.php?id=<?php echo $res['id']; ?>" class="ink-card">
                                 <div class="ink-card-meta">
-                                    <span class="ink-card-cat"><?php echo htmlspecialchars(strtoupper($res['category_name'] ?? 'GENERAL')); ?></span>
+                                    <span class="ink-card-cat"><?php echo htmlspecialchars(mb_strtoupper($res['category_name'] ?? 'GENERAL', 'UTF-8')); ?></span>
                                     <span class="ink-date"><?php echo date('d / m / Y', strtotime($res['created_at'])); ?></span>
                                 </div>
                                 <h3 class="ink-card-title"><?php echo htmlspecialchars($res['title']); ?></h3>
@@ -169,7 +169,7 @@ try {
                         <?php foreach($popular_articles as $art): ?>
                             <a href="wiki-article.php?id=<?php echo $art['id']; ?>" class="ink-card">
                                 <div class="ink-card-meta">
-                                    <span class="ink-card-cat"><?php echo htmlspecialchars(strtoupper($art['category_name'] ?? 'WIKI')); ?></span>
+                                    <span class="ink-card-cat"><?php echo htmlspecialchars(mb_strtoupper($art['category_name'] ?? 'WIKI', 'UTF-8')); ?></span>
                                 </div>
                                 <h3 class="ink-card-title"><?php echo htmlspecialchars($art['title']); ?></h3>
                                 <div class="ink-card-footer">
@@ -193,7 +193,7 @@ try {
                         <?php foreach($recent_articles as $art): ?>
                             <a href="wiki-article.php?id=<?php echo $art['id']; ?>" class="ink-card">
                                 <div class="ink-card-meta">
-                                    <span class="ink-card-cat"><?php echo htmlspecialchars(strtoupper($art['category_name'] ?? 'WIKI')); ?></span>
+                                    <span class="ink-card-cat"><?php echo htmlspecialchars(mb_strtoupper($art['category_name'] ?? 'WIKI', 'UTF-8')); ?></span>
                                     <span class="ink-date"><?php echo date('d / m / Y', strtotime($art['created_at'])); ?></span>
                                 </div>
                                 <h3 class="ink-card-title"><?php echo htmlspecialchars($art['title']); ?></h3>
