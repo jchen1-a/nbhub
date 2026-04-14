@@ -17,24 +17,24 @@ require_once 'config.php';
             <a href="wiki.php" class="ink-scroll-card card-step-1" style="animation-delay: 0.4s;">
                 <div class="card-top-accent"></div>
                 <i class="fas fa-book-open card-icon"></i>
+                <div class="card-sp">WIKI</div>
                 <div class="card-cn">万象宗卷</div>
-                <div class="card-sp">EXPLORAR WIKI</div>
                 <div class="card-hover-bg"></div>
             </a>
 
             <a href="guides.php" class="ink-scroll-card card-step-2" style="animation-delay: 0.6s;">
                 <div class="card-top-accent"></div>
                 <i class="fas fa-graduation-cap card-icon"></i>
+                <div class="card-sp">GUÍAS</div>
                 <div class="card-cn">武道秘籍</div>
-                <div class="card-sp">VER GUÍAS</div>
                 <div class="card-hover-bg"></div>
             </a>
 
             <a href="forum.php" class="ink-scroll-card card-step-3" style="animation-delay: 0.8s;">
                 <div class="card-top-accent"></div>
                 <i class="fas fa-comments card-icon"></i>
+                <div class="card-sp">FORO</div>
                 <div class="card-cn">论剑客栈</div>
-                <div class="card-sp">IR AL FORO</div>
                 <div class="card-hover-bg"></div>
             </a>
 
@@ -151,7 +151,7 @@ footer, .site-footer {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start; /* 改为自上而下排列 */
     padding: 50px 20px;
     text-decoration: none;
     overflow: hidden;
@@ -184,12 +184,28 @@ footer, .site-footer {
 .card-icon {
     font-size: 2.2em;
     color: rgba(255,255,255,0.8);
+    margin-bottom: 15px; /* 与下方文字的间距 */
     z-index: 2;
     transition: all 0.5s ease;
 }
 .ink-scroll-card:hover .card-icon {
     color: #ff4d4d;
     transform: scale(1.2);
+}
+
+/* 西班牙语标签 (移至图标下方) */
+.card-sp {
+    font-family: 'Cinzel', serif;
+    font-size: 1.2em; /* 字体加大 */
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    letter-spacing: 2px;
+    z-index: 2;
+    transition: color 0.5s;
+}
+.ink-scroll-card:hover .card-sp {
+    color: #ff4d4d;
 }
 
 /* 竖排书法字体 */
@@ -201,27 +217,13 @@ footer, .site-footer {
     color: rgba(255,255,255,0.9);
     letter-spacing: 20px;
     text-shadow: 2px 2px 10px rgba(0,0,0,0.8);
+    margin: auto 0; /* 自动分配上下空间，实现垂直居中 */
     z-index: 2;
     transition: color 0.5s ease;
 }
 .ink-scroll-card:hover .card-cn {
     color: #fff;
     text-shadow: 0 0 15px rgba(255,255,255,0.5);
-}
-
-/* 底部西班牙语标签 */
-.card-sp {
-    font-family: 'Cinzel', serif;
-    font-size: 0.9em;
-    font-weight: 700;
-    color: rgba(255,255,255,0.5);
-    text-align: center;
-    letter-spacing: 3px;
-    z-index: 2;
-    transition: color 0.5s;
-}
-.ink-scroll-card:hover .card-sp {
-    color: #ff4d4d;
 }
 
 /* 悬停时的底部水墨红光晕 */
@@ -251,7 +253,8 @@ footer, .site-footer {
     
     /* 移动端改回横向排版防止太长 */
     .ink-scroll-card { width: 90%; max-width: 320px; height: 100px; flex-direction: row; padding: 0 30px; animation: none; opacity: 1; clip-path: none; }
-    .card-cn { writing-mode: horizontal-tb; font-size: 1.5em; letter-spacing: 5px; }
+    .card-icon { margin-bottom: 0; margin-right: 15px; }
+    .card-cn { writing-mode: horizontal-tb; font-size: 1.5em; letter-spacing: 5px; margin: 0; }
     .card-sp { display: none; } 
 }
 </style>
