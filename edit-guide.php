@@ -1,11 +1,12 @@
 <?php
-// edit-guide.php - 编辑已有攻略 (完整版)
+// edit-guide.php - 100% 完整版 (暗黑武侠重构版 + CSRF防护 + 历史版本快照保存)
 require_once 'config.php';
 require_login();
 
 $id = intval($_GET['id'] ?? 0);
 $user_id = $_SESSION['user_id'];
 $errors = [];
+
 $categories = [
     'general' => 'General', 
     'combat' => 'Combate', 
@@ -15,10 +16,16 @@ $categories = [
     'map' => 'Mapa'
 ];
 
+$difficulties = [
+    'beginner' => 'Básico',
+    'intermediate' => 'Intermedio',
+    'advanced' => 'Avanzado'
+];
+
 try {
     $pdo = db_connect();
     
-    // 1. 验证攻略是否存在，以及当前登录用户是否是该攻略的作者
+    // 1. 验证攻略是否存在，及权限
     $stmt = $pdo->prepare("SELECT * FROM articles WHERE id = ? AND user_id = ?");
     $stmt->execute([$id, $user_id]);
     $article = $stmt->fetch();
@@ -32,158 +39,155 @@ try {
     die("Error de base de datos: " . $e->getMessage());
 }
 
-// 2. 处理表单提交
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = sanitize($_POST['title'] ?? '');
-    $category = sanitize($_POST['category'] ?? 'general');
-    $difficulty = sanitize($_POST['difficulty'] ?? 'beginner');
-    $content = trim($_POST['content'] ?? '');
-    $video_url = sanitize($_POST['video_url'] ?? '');
-    
-    // 默认保留旧的本地视频路径，防止被清空
-    $video_path = $article['video_path'] ?? null; 
-
-    if (empty($title)) $errors['title'] = 'El título es obligatorio.';
-    if (empty($content)) $errors['content'] = 'El contenido es obligatorio.';
-
-    // 处理新上传的 MP4 视频 (如果用户选择更换视频)
-    if (isset($_FILES['video']) && $_FILES['video']['error'] === UPLOAD_ERR_OK) {
-        $file = $_FILES['video'];
-        if ($file['type'] !== 'video/mp4') {
-            $errors['video'] = "Solo se permiten videos en formato MP4.";
-        } elseif ($file['size'] > 20 * 1024 * 1024) { // 限制 20MB
-            $errors['video'] = "El video no debe superar los 20MB.";
-        } else {
-            $upload_dir = 'uploads/videos/';
-            if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-            $new_filename = 'guide_' . time() . '_' . rand(1000, 9999) . '.mp4';
-            
-            if (move_uploaded_file($file['tmp_name'], $upload_dir . $new_filename)) {
-                $video_path = $upload_dir . $new_filename;
+    // P0-1: CSRF 安全校验
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $errors['system'] = 'Error de seguridad (CSRF). Por favor, recarga e inténtalo de nuevo.';
+    } else {
+        $title = sanitize($_POST['title'] ?? '');
+        $category = sanitize($_POST['category'] ?? 'general');
+        $difficulty = sanitize($_POST['difficulty'] ?? 'beginner');
+        $content = trim($_POST['content'] ?? '');
+        $video_url = sanitize($_POST['video_url'] ?? '');
+        $edit_summary = sanitize($_POST['edit_summary'] ?? 'Sin resumen de edición');
+        
+        if (empty($title)) $errors['title'] = 'El título es obligatorio.';
+        if (empty($content)) $errors['content'] = 'El contenido no puede estar vacío.';
+        
+        if (empty($errors)) {
+            try {
+                // P1-5: 【时光机】在覆盖前，将当前数据库里的旧数据存入快照表
+                $snapshot_stmt = $pdo->prepare("INSERT INTO wiki_article_versions (article_id, user_id, title, content, edit_summary, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                $snapshot_stmt->execute([$id, $user_id, $article['title'], $article['content'], $edit_summary]);
                 
-                // 删除服务器上的旧视频文件，节省硬盘空间
-                if (!empty($article['video_path']) && file_exists($article['video_path'])) {
-                    unlink($article['video_path']);
-                }
-            } else {
-                $errors['video'] = "Error al guardar el nuevo video.";
+                // 执行更新
+                $update_stmt = $pdo->prepare("UPDATE articles SET title=?, category=?, difficulty=?, content=?, video_url=? WHERE id=?");
+                $update_stmt->execute([$title, $category, $difficulty, $content, $video_url, $id]);
+                
+                $_SESSION['flash_message'] = "¡Guía actualizada! La versión anterior ha sido guardada en el historial.";
+                header("Location: article.php?id=" . $id);
+                exit;
+            } catch (Exception $e) {
+                $errors['system'] = "Error al guardar: " . $e->getMessage();
             }
-        }
-    }
-
-    // 3. 更新数据库
-    if (empty($errors)) {
-        try {
-            $updateStmt = $pdo->prepare("
-                UPDATE articles 
-                SET title = ?, category = ?, difficulty = ?, content = ?, video_url = ?, video_path = ? 
-                WHERE id = ?
-            ");
-            $updateStmt->execute([$title, $category, $difficulty, $content, $video_url, $video_path, $id]);
-            
-            $_SESSION['flash_message'] = '¡Guía actualizada con éxito!';
-            header("Location: article.php?id=" . $id);
-            exit();
-        } catch (Exception $e) {
-            $errors['general'] = 'Error al actualizar: ' . $e->getMessage();
         }
     }
 }
 ?>
 <?php include 'includes/header.php'; ?>
 
-<div class="container" style="padding: 40px 20px; max-width: 900px; margin: 0 auto;">
-    <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.08);">
-        <h1 style="color: var(--primary); margin-bottom: 20px;">
-            <i class="fas fa-edit"></i> Editar Guía
-        </h1>
-        
-        <?php if (isset($errors['general'])): ?>
-            <div class="alert alert-error"><?php echo $errors['general']; ?></div>
-        <?php endif; ?>
+<div class="nj-static-bg"></div>
 
-        <form method="POST" enctype="multipart/form-data">
-            <div style="margin-bottom: 20px;">
-                <label style="font-weight:bold; display:block; margin-bottom:8px;">Título *</label>
-                <input type="text" name="title" value="<?php echo htmlspecialchars($_POST['title'] ?? $article['title']); ?>" required 
-                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size:16px;">
-                <?php if(isset($errors['title'])) echo "<small style='color:red;'>{$errors['title']}</small>"; ?>
-            </div>
+<div class="nj-container">
+    <header class="nj-header">
+        <div class="nj-header-titles">
+            <h1>PERGAMINO DE SABIDURÍA</h1>
+            <h2>Editar Guía: <?php echo htmlspecialchars($article['title']); ?></h2>
+        </div>
+    </header>
+
+    <div class="nj-layout">
+        <main class="nj-main" style="max-width: 900px; margin: 0 auto;">
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                <div>
-                    <label style="font-weight:bold; display:block; margin-bottom:8px;">Categoría</label>
-                    <select name="category" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size:16px;">
-                        <?php 
-                        $curr_cat = $_POST['category'] ?? $article['category'];
-                        foreach ($categories as $k => $v) {
-                            $selected = ($curr_cat == $k) ? 'selected' : '';
-                            echo "<option value='$k' $selected>$v</option>";
-                        }
-                        ?>
-                    </select>
+            <?php if (!empty($errors)): ?>
+                <div class="nj-alert">
+                    <i class="fas fa-exclamation-triangle"></i> Por favor, corrige los errores del formulario.
+                    <?php if(isset($errors['system'])) echo "<br><strong>".$errors['system']."</strong>"; ?>
                 </div>
-                <div>
-                    <label style="font-weight:bold; display:block; margin-bottom:8px;">Dificultad</label>
-                    <select name="difficulty" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size:16px;">
-                        <?php $curr_diff = $_POST['difficulty'] ?? $article['difficulty']; ?>
-                        <option value="beginner" <?php echo $curr_diff == 'beginner' ? 'selected' : ''; ?>>Principiante</option>
-                        <option value="intermediate" <?php echo $curr_diff == 'intermediate' ? 'selected' : ''; ?>>Intermedio</option>
-                        <option value="advanced" <?php echo $curr_diff == 'advanced' ? 'selected' : ''; ?>>Avanzado</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #ccc;">
-                <h4 style="margin-top:0; color: var(--primary);"><i class="fas fa-video"></i> Multimedia (Opcional)</h4>
-                
-                <?php if(!empty($article['video_path'])): ?>
-                    <div style="margin-bottom: 15px; padding: 10px; background: #e9ecef; border-radius: 6px; font-size: 0.9em;">
-                        <i class="fas fa-check-circle" style="color: #28a745;"></i> Ya tienes un video local subido. Si subes uno nuevo, el anterior se borrará.
+            <?php endif; ?>
+
+            <div class="nj-sidebar-card">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+
+                    <div style="margin-bottom: 25px;">
+                        <label class="nj-label">Título de la Guía</label>
+                        <input type="text" name="title" class="nj-input" value="<?php echo htmlspecialchars($_POST['title'] ?? $article['title']); ?>" required>
+                        <?php if(isset($errors['title'])) echo "<div style='color:var(--nj-red); font-size:0.85em; margin-top:5px;'>{$errors['title']}</div>"; ?>
                     </div>
-                <?php endif; ?>
 
-                <div style="margin-bottom: 10px;">
-                    <label style="font-weight:bold; display:block; margin-bottom:5px;">Enlace de YouTube</label>
-                    <input type="text" name="video_url" placeholder="Ej: https://www.youtube.com/watch?v=..." 
-                           value="<?php echo htmlspecialchars($_POST['video_url'] ?? $article['video_url'] ?? ''); ?>" 
-                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size:15px;">
-                </div>
-                
-                <div style="text-align:center; color:#888; margin: 15px 0; font-weight:bold;">- O -</div>
-                
-                <div>
-                    <label style="font-weight:bold; display:block; margin-bottom:5px;">Reemplazar con nuevo archivo MP4 (Máx 20MB)</label>
-                    <input type="file" name="video" accept="video/mp4" 
-                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor:pointer;">
-                    <?php if(isset($errors['video'])) echo "<small style='color:red; display:block; margin-top:5px;'>{$errors['video']}</small>"; ?>
-                </div>
-            </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+                        <div>
+                            <label class="nj-label">Categoría</label>
+                            <select name="category" class="nj-input">
+                                <?php 
+                                $curr_cat = $_POST['category'] ?? $article['category'];
+                                foreach ($categories as $val => $label): 
+                                ?>
+                                    <option value="<?php echo $val; ?>" <?php echo $curr_cat === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="nj-label">Dificultad</label>
+                            <select name="difficulty" class="nj-input">
+                                <?php 
+                                $curr_diff = $_POST['difficulty'] ?? $article['difficulty'];
+                                foreach ($difficulties as $val => $label): 
+                                ?>
+                                    <option value="<?php echo $val; ?>" <?php echo $curr_diff === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
 
-            <div style="margin-bottom: 20px;">
-                <label style="font-weight:bold; display:block; margin-bottom:8px;">Contenido de la Guía *</label>
-                <textarea name="content" rows="15" required 
-                          style="width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; font-family: inherit; resize: vertical; overflow-wrap: break-word;"><?php echo htmlspecialchars($_POST['content'] ?? $article['content']); ?></textarea>
+                    <div style="margin-bottom: 25px;">
+                        <label class="nj-label">URL del Video (Opcional - YouTube)</label>
+                        <input type="text" name="video_url" class="nj-input" value="<?php echo htmlspecialchars($_POST['video_url'] ?? $article['video_url']); ?>" placeholder="Ej: https://www.youtube.com/watch?v=...">
+                    </div>
+
+                    <div style="margin-bottom: 25px;">
+                        <label class="nj-label">Contenido de la Guía</label>
+                        <textarea name="content" class="nj-input" rows="18" required style="resize:vertical; font-family: monospace; font-size:1.05em; line-height: 1.6;"><?php echo htmlspecialchars($_POST['content'] ?? $article['content']); ?></textarea>
+                        <?php if(isset($errors['content'])) echo "<div style='color:var(--nj-red); font-size:0.85em; margin-top:5px;'>{$errors['content']}</div>"; ?>
+                    </div>
+
+                    <div style="margin-bottom: 35px; padding: 15px; background: rgba(204, 166, 119, 0.05); border: 1px dashed var(--nj-gold); border-radius: 6px;">
+                        <label class="nj-label" style="color: var(--nj-gold);"><i class="fas fa-history"></i> Resumen de Edición (Opcional)</label>
+                        <input type="text" name="edit_summary" class="nj-input" style="background: rgba(0,0,0,0.6);" placeholder="Describe brevemente qué cambiaste en esta versión...">
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 15px;">
+                        <a href="article.php?id=<?php echo $id; ?>" class="nj-btn-secondary" style="width: auto;">Cancelar</a>
+                        <button type="submit" class="nj-btn-primary" style="width: auto;"><i class="fas fa-save"></i> Guardar Cambios</button>
+                    </div>
+                </form>
             </div>
-            
-            <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #eee; padding-top: 20px;">
-                <a href="article.php?id=<?php echo $id; ?>" 
-                   style="padding: 12px 25px; border: 2px solid #ddd; border-radius: 8px; text-decoration: none; color: #555; font-weight:bold; transition: all 0.3s;">
-                    Cancelar
-                </a>
-                <button type="submit" 
-                        style="padding: 12px 25px; background: var(--success, #28a745); color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1.05em; cursor: pointer; transition: all 0.3s;">
-                    Guardar Cambios
-                </button>
-            </div>
-        </form>
+        </main>
     </div>
+    
+    <footer class="nj-footer">
+        <p>NARAKA BLADEPOINT WUXIA ARCHIVES © 2026</p>
+    </footer>
 </div>
 
 <style>
-/* 按钮悬停效果 */
-button[type="submit"]:hover { background: #218838 !important; }
-a[href^="article.php"]:hover { background: #f8f9fa; }
+/* 继承 & 扩展官方样式 */
+:root {
+    --nj-bg: #0B0A0A; --nj-module: #161413; --nj-module-hover: #1E1B19;    
+    --nj-red: #D12323; --nj-gold: #CCA677; --nj-border: #2D2926;          
+    --nj-text-main: #E6E4DF; --nj-text-muted: #8F98A0; 
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+body { background-color: var(--nj-bg) !important; color: var(--nj-text-main); font-family: var(--font-main); margin: 0; padding: 0; overflow-x: hidden; }
+.nj-static-bg { position: fixed; inset: 0; z-index: -10; background-color: var(--nj-bg); background-image: radial-gradient(circle at 10% 20%, rgba(209, 35, 35, 0.04), transparent 50%), radial-gradient(circle at 90% 80%, rgba(204, 166, 119, 0.03), transparent 50%); background-blend-mode: screen; }
+.nj-static-bg::after { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; }
+.nj-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 100vh; display: flex; flex-direction: column;}
+.nj-header { margin-top: 40px; margin-bottom: 30px; border-bottom: 1px solid var(--nj-border); padding-bottom:20px;}
+.nj-header-titles h1 { font-size: 1em; color: var(--nj-text-muted); font-weight: normal; margin: 0 0 5px 0; letter-spacing: 1px;}
+.nj-header-titles h2 { font-size: 1.6em; color: var(--nj-text-main); font-weight: 600; margin: 0;}
+.nj-layout { display: flex; flex: 1; }
+.nj-main { flex: 1; width: 100%; }
+.nj-sidebar-card { background: var(--nj-module); border: 1px solid var(--nj-border); border-radius: 8px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);}
+.nj-label { display: block; margin-bottom: 10px; color: var(--nj-gold); font-size: 0.85em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;}
+.nj-input { width: 100%; padding: 15px; background: rgba(0,0,0,0.4); border: 1px solid var(--nj-border); border-radius: 6px; color: var(--nj-text-main); font-family: var(--font-main); outline: none; transition: 0.2s; box-sizing: border-box; font-size: 1em;}
+.nj-input:focus { border-color: var(--nj-gold); background: var(--nj-bg);}
+.nj-btn-primary { display: inline-block; text-align: center; background: var(--nj-red); color: #fff; padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; font-weight: bold; transition: background 0.2s; border: none; cursor: pointer;}
+.nj-btn-primary:hover { background: #b81c1c; }
+.nj-btn-secondary { display: inline-block; text-align: center; background: transparent; border: 1px solid var(--nj-border); color: var(--nj-text-main); padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; transition: 0.2s; cursor: pointer;}
+.nj-btn-secondary:hover { background: var(--nj-module-hover); border-color: var(--nj-text-muted); }
+.nj-alert { padding: 15px; background: rgba(209, 35, 35, 0.1); border: 1px solid var(--nj-red); color: var(--nj-text-main); border-radius: 8px; margin-bottom: 20px; font-size: 0.9em;}
+.nj-footer { margin-top: 60px; padding: 40px 0; border-top: 1px solid var(--nj-border); text-align: center; color: var(--nj-text-muted); font-size: 0.8em; letter-spacing: 1px;}
 </style>
 
 <?php include 'includes/footer.php'; ?>
