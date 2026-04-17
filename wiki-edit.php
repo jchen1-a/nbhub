@@ -1,5 +1,5 @@
 <?php
-// wiki-edit.php - 编辑Wiki词条
+// wiki-edit.php - 编辑Wiki词条 (浅色水墨白灰红版)
 require_once 'config.php';
 require_login();
 
@@ -46,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$title, $content, $category_id, $id]);
             
             $_SESSION['flash_message'] = '¡Artículo actualizado con éxito!';
-            // 如果你有 wiki-article.php 可以跳转过去，暂时先跳回首页
-            header("Location: wiki.php"); 
+            // 更新成功后，直接跳转回该词条的详情页
+            header("Location: wiki-article.php?id=" . $id); 
             exit();
             
         } catch (Exception $e) {
@@ -58,25 +58,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <?php include 'includes/header.php'; ?>
 
-<div class="container" style="padding: 40px 20px; max-width: 900px;">
-    <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.08);">
-        <h1 style="color: var(--primary); margin-bottom: 20px;"><i class="fas fa-edit"></i> Editar: <?php echo htmlspecialchars($article['title']); ?></h1>
-        <p style="color: #666; margin-bottom: 30px;">Mejora esta página de la wiki. Todo el historial de cambios se guarda.</p>
+<div class="light-theme-bg"></div>
+
+<div class="edit-container">
+    
+    <div class="edit-card">
+        <h1 class="edit-title"><i class="fas fa-pen-nib"></i> Modificar Rollo</h1>
+        <p class="edit-subtitle">Editando el registro: <strong style="color:#222;"><?php echo htmlspecialchars($article['title']); ?></strong></p>
 
         <?php if (isset($errors['general'])): ?>
-            <div class="alert alert-error"><?php echo $errors['general']; ?></div>
+            <div class="alert-box alert-error">
+                <i class="fas fa-exclamation-triangle"></i> <?php echo $errors['general']; ?>
+            </div>
         <?php endif; ?>
 
         <form method="POST">
-            <div style="margin-bottom: 20px;">
-                <label style="font-weight:bold; display:block; margin-bottom:5px;">Título del Artículo</label>
-                <input type="text" name="title" value="<?php echo htmlspecialchars($_POST['title'] ?? $article['title']); ?>" required
-                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
+            <div class="form-group">
+                <label class="form-label">Título del Artículo (词条名称)</label>
+                <input type="text" name="title" value="<?php echo htmlspecialchars($_POST['title'] ?? $article['title']); ?>" required class="form-control">
             </div>
 
-            <div style="margin-bottom: 20px;">
-                <label style="font-weight:bold; display:block; margin-bottom:5px;">Categoría</label>
-                <select name="category_id" required style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
+            <div class="form-group">
+                <label class="form-label">Categoría (所属分类)</label>
+                <select name="category_id" required class="form-control">
                     <?php 
                     $current_cat = $_POST['category_id'] ?? $article['category_id'];
                     foreach ($categories as $cat): 
@@ -88,18 +92,116 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </select>
             </div>
 
-            <div style="margin-bottom: 20px;">
-                <label style="font-weight:bold; display:block; margin-bottom:5px;">Contenido</label>
-                <textarea name="content" rows="15" required
-                          style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; font-family:inherit; resize:vertical; overflow-wrap: break-word;"><?php echo htmlspecialchars($_POST['content'] ?? $article['content']); ?></textarea>
+            <div class="form-group">
+                <label class="form-label">Contenido (卷宗内容)</label>
+                <textarea name="content" rows="18" required class="form-control" style="resize:vertical; line-height: 1.6;"><?php echo htmlspecialchars($_POST['content'] ?? $article['content']); ?></textarea>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 15px;">
-                <button type="button" onclick="history.back()" style="padding: 12px 25px; border: 2px solid #ddd; background: transparent; color: #666; border-radius: 8px; font-weight: bold; cursor: pointer;">Cancelar</button>
-                <button type="submit" style="padding: 12px 25px; background: var(--success, #28a745); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Actualizar Artículo</button>
+            <div class="form-actions">
+                <button type="button" onclick="history.back()" class="btn-cancel">Cancelar</button>
+                <button type="submit" class="btn-submit"><i class="fas fa-stamp"></i> Actualizar</button>
             </div>
         </form>
     </div>
 </div>
+
+<style>
+/* ================= 浅色水墨风 (White > Gray > Red) ================= */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+
+body {
+    background-color: #F7F7F7 !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* 让底部 footer 乖乖待在最下面 */
+}
+
+.light-theme-bg {
+    position: fixed; inset: 0; z-index: -10;
+    background-color: #F7F7F7;
+    background-image: radial-gradient(circle at 50% 0%, #FFFFFF 0%, transparent 70%);
+}
+
+/* 居中表单容器 */
+.edit-container {
+    flex: 1; 
+    width: 100%;
+    max-width: 900px;
+    margin: 40px auto 80px auto; 
+    padding: 0 20px;
+    font-family: 'Noto Serif SC', serif;
+    box-sizing: border-box;
+}
+
+/* 纯白主卡片 */
+.edit-card {
+    background: #FFFFFF;
+    padding: 50px 60px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.02);
+    position: relative;
+}
+
+/* 顶部朱砂红细线 */
+.edit-card::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+    background: #9e1b1b;
+}
+
+/* 标题区 */
+.edit-title { color: #222222; font-size: 2.2em; margin: 0 0 10px 0; font-weight: 900; letter-spacing: 2px;}
+.edit-subtitle { color: #888888; font-size: 0.95em; font-family: sans-serif; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px dashed #eee;}
+
+/* 错误提示 */
+.alert-box { padding: 15px; border-radius: 4px; margin-bottom: 25px; font-family: sans-serif; font-size: 0.9em; font-weight: bold;}
+.alert-error { background: rgba(158,27,27,0.05); border: 1px solid #9e1b1b; color: #9e1b1b; }
+
+/* 表单组 */
+.form-group { margin-bottom: 25px; }
+.form-label { display: block; font-weight: bold; color: #555; margin-bottom: 10px; font-size: 0.95em; letter-spacing: 1px; font-family: sans-serif;}
+
+.form-control { 
+    width: 100%; 
+    padding: 15px; 
+    border: 1px solid #dddddd; 
+    border-radius: 2px; 
+    font-size: 1.05em; 
+    font-family: inherit; 
+    background: #fafafa; 
+    transition: all 0.3s;
+    box-sizing: border-box;
+    outline: none;
+    color: #333;
+}
+.form-control:focus { border-color: #9e1b1b; background: #fff; box-shadow: 0 0 0 3px rgba(158,27,27,0.1); }
+
+/* 操作按钮 */
+.form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-top: 40px; padding-top: 25px; border-top: 1px dashed #eee;}
+
+.btn-cancel { 
+    background: transparent; padding: 12px 25px; border: 1px solid #cccccc; color: #666; 
+    border-radius: 2px; font-family: sans-serif; font-weight: bold; font-size: 0.95em; 
+    cursor: pointer; transition: 0.3s; letter-spacing: 1px;
+}
+.btn-cancel:hover { border-color: #222; color: #222; background: rgba(0,0,0,0.03); }
+
+.btn-submit { 
+    background: #222; color: #fff; border: 1px solid #222; padding: 12px 30px; 
+    border-radius: 2px; font-family: 'Noto Serif SC', serif; font-weight: bold; 
+    font-size: 1.05em; letter-spacing: 2px; cursor: pointer; transition: 0.3s; 
+    display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-submit:hover { background: #9e1b1b; border-color: #9e1b1b; }
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .edit-container { margin-top: 20px; padding: 0 15px; }
+    .edit-card { padding: 30px 20px; }
+    .edit-title { font-size: 1.8em; }
+    .form-actions { flex-direction: column-reverse; align-items: stretch; }
+    .btn-cancel, .btn-submit { width: 100%; justify-content: center; }
+}
+</style>
 
 <?php include 'includes/footer.php'; ?>

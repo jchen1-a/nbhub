@@ -1,5 +1,5 @@
 <?php
-// view-post.php - 100% 完整版 (点赞/收藏无刷新功能 + 传统回复 CSRF 防护)
+// view-post.php - 100% 完整版 (点赞/收藏无刷新功能 + 浅色水墨白灰红版)
 require_once 'config.php';
 
 $post_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -118,155 +118,255 @@ try {
 ?>
 <?php include 'includes/header.php'; ?>
 
-<div class="nj-static-bg"></div>
+<div class="light-theme-bg"></div>
 
-<div class="nj-container">
+<div class="article-container">
     
-    <header class="nj-header" style="border-bottom:none; margin-bottom: 10px;">
-        <a href="forum.php" style="color:var(--nj-gold); text-decoration:none; font-size:0.9em; font-weight:bold;">
-            <i class="fas fa-arrow-left"></i> Volver a Discusiones
-        </a>
-    </header>
+    <div class="breadcrumb">
+        <a href="forum.php"><i class="fas fa-arrow-left"></i> 归栈 (Volver a Discusiones)</a>
+    </div>
 
-    <div class="nj-layout">
-        <main class="nj-main" style="max-width: 1000px; margin: 0 auto;">
-            
-            <?php if (isset($_SESSION['flash_error'])): ?>
-                <div class="nj-alert">
-                    <i class="fas fa-exclamation-triangle"></i> <?php echo $_SESSION['flash_error']; unset($_SESSION['flash_error']); ?>
-                </div>
-            <?php endif; ?>
-            <?php if (isset($_SESSION['flash_message'])): ?>
-                <div class="nj-alert" style="border-color: #28a745; background: rgba(40,167,69,0.1); color:#E6E4DF;">
-                    <i class="fas fa-check-circle"></i> <?php echo $_SESSION['flash_message']; unset($_SESSION['flash_message']); ?>
-                </div>
-            <?php endif; ?>
+    <article class="article-card">
+        
+        <?php if (isset($_SESSION['flash_error'])): ?>
+            <div class="alert-box alert-error">
+                <i class="fas fa-exclamation-triangle"></i> <?php echo $_SESSION['flash_error']; unset($_SESSION['flash_error']); ?>
+            </div>
+        <?php endif; ?>
+        <?php if (isset($_SESSION['flash_message'])): ?>
+            <div class="alert-box alert-success">
+                <i class="fas fa-check-circle"></i> <?php echo $_SESSION['flash_message']; unset($_SESSION['flash_message']); ?>
+            </div>
+        <?php endif; ?>
 
-            <article class="nj-sidebar-card" style="position: relative; padding: 35px;">
-                <?php if ($user_id == $post['user_id']): ?>
-                    <div style="position: absolute; right: 25px; top: 25px; display: flex; gap: 8px;">
-                        <a href="edit-post.php?id=<?php echo $post['id']; ?>" class="nj-btn-secondary" style="padding: 6px 12px; font-size: 0.8em;" title="Editar"><i class="fas fa-edit"></i></a>
-                        <a href="delete-post.php?id=<?php echo $post['id']; ?>" onclick="return confirm('¿Eliminar tema?')" class="nj-btn-secondary" style="padding: 6px 12px; font-size: 0.8em; color: var(--nj-red); border-color: rgba(209,35,35,0.3);"><i class="fas fa-trash"></i></a>
-                    </div>
-                <?php endif; ?>
+        <?php if ($user_id == $post['user_id']): ?>
+            <div class="author-actions-corner">
+                <a href="edit-post.php?id=<?php echo $post['id']; ?>" class="btn-corner" title="Editar"><i class="fas fa-edit"></i></a>
+                <a href="delete-post.php?id=<?php echo $post['id']; ?>" onclick="return confirm('¿Eliminar tema?')" class="btn-corner btn-danger-corner" title="Borrar"><i class="fas fa-trash"></i></a>
+            </div>
+        <?php endif; ?>
 
-                <div style="border-bottom: 1px solid var(--nj-border); padding-bottom: 20px; margin-bottom: 25px;">
-                    <div style="margin-bottom: 15px;">
-                        <span class="nj-badge-cat"><?php echo strtoupper(htmlspecialchars($post['category'])); ?></span>
-                    </div>
-                    <h1 class="nj-post-title"><?php echo htmlspecialchars($post['title']); ?></h1>
-                    <div class="nj-post-info">
-                        <span><i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($post['username']); ?></span>
-                        <span><i class="fas fa-clock"></i> <?php echo date('d M Y, H:i', strtotime($post['created_at'])); ?></span>
-                        <span><i class="fas fa-eye"></i> <?php echo $post['views']; ?> Vistas</span>
-                    </div>
-                </div>
-
-                <div class="nj-post-content">
-                    <?php echo nl2br(htmlspecialchars($post['content'])); ?>
-                </div>
-
-                <div class="nj-interaction-bar">
-                    <button id="like-btn" class="nj-interact-btn <?php echo $has_liked ? 'active' : ''; ?>" data-post-id="<?php echo $post_id; ?>">
-                        <i class="<?php echo $has_liked ? 'fas' : 'far'; ?> fa-heart"></i> 
-                        Me gusta (<span id="like-count"><?php echo $post['likes_count']; ?></span>)
-                    </button>
-                    
-                    <button id="bookmark-btn" class="nj-interact-btn <?php echo $has_bookmarked ? 'active' : ''; ?>" data-post-id="<?php echo $post_id; ?>">
-                        <i class="<?php echo $has_bookmarked ? 'fas' : 'far'; ?> fa-bookmark"></i> 
-                        <span><?php echo $has_bookmarked ? 'Guardado' : 'Guardar'; ?></span> 
-                        (<span id="bookmark-count"><?php echo $post['bookmarks_count']; ?></span>)
-                    </button>
-                </div>
-            </article>
-
-            <div class="nj-replies-divider">
-                <h3>RESPUESTAS (<?php echo count($replies_list); ?>)</h3>
+        <header class="article-header">
+            <div class="header-tags">
+                <span class="cat-badge"><?php echo htmlspecialchars(strtoupper($post['category'])); ?></span>
             </div>
             
-            <div style="display: flex; flex-direction: column; gap: 20px;">
+            <h1 class="article-title"><?php echo htmlspecialchars($post['title']); ?></h1>
+            
+            <div class="article-meta">
+                <span title="Autor"><i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($post['username']); ?></span>
+                <span title="Fecha"><i class="far fa-clock"></i> <?php echo date('d/m/Y H:i', strtotime($post['created_at'])); ?></span>
+                <span title="Vistas"><i class="fas fa-eye"></i> <?php echo $post['views']; ?></span>
+            </div>
+        </header>
+
+        <div class="wiki-content-body">
+            <?php echo nl2br(htmlspecialchars($post['content'])); ?>
+        </div>
+
+        <div class="article-actions-bar">
+            <button id="like-btn" class="btn-interact <?php echo $has_liked ? 'active' : ''; ?>" data-post-id="<?php echo $post_id; ?>">
+                <i class="<?php echo $has_liked ? 'fas' : 'far'; ?> fa-heart"></i> 
+                Me gusta (<span id="like-count"><?php echo $post['likes_count']; ?></span>)
+            </button>
+            
+            <button id="bookmark-btn" class="btn-interact <?php echo $has_bookmarked ? 'active' : ''; ?>" data-post-id="<?php echo $post_id; ?>">
+                <i class="<?php echo $has_bookmarked ? 'fas' : 'far'; ?> fa-bookmark"></i> 
+                <span><?php echo $has_bookmarked ? 'Guardado' : 'Guardar'; ?></span> 
+                (<span id="bookmark-count"><?php echo $post['bookmarks_count']; ?></span>)
+            </button>
+        </div>
+    </article>
+
+    <div class="comments-section">
+        <h2 class="comments-title">回帖 (Respuestas) <span>[<?php echo count($replies_list); ?>]</span></h2>
+
+        <div class="comments-list">
+            <?php if (empty($replies_list)): ?>
+                <div class="comments-empty">
+                    <p>尚未有人回应，且留第一笔。</p>
+                </div>
+            <?php else: ?>
                 <?php foreach($replies_list as $index => $reply): ?>
-                    <div class="nj-sidebar-card" style="padding: 25px;">
-                        <div class="nj-reply-header">
-                            <div class="nj-reply-user">
-                                <i class="fas fa-user-circle"></i>
-                                <strong><?php echo htmlspecialchars($reply['username']); ?></strong>
-                                <span><i class="fas fa-clock"></i> <?php echo date('d M Y, H:i', strtotime($reply['created_at'])); ?></span>
-                            </div>
-                            <div class="nj-reply-num">#<?php echo $index + 1; ?></div>
+                    <div class="comment-item">
+                        <div class="comment-avatar-box">
+                            <?php if(!empty($reply['avatar'])): ?>
+                                <img src="<?php echo htmlspecialchars($reply['avatar']); ?>" class="comment-avatar">
+                            <?php else: ?>
+                                <i class="fas fa-user-circle comment-avatar-placeholder"></i>
+                            <?php endif; ?>
                         </div>
-                        <div class="nj-reply-body">
-                            <?php echo nl2br(htmlspecialchars($reply['content'])); ?>
+                        <div class="comment-content-box">
+                            <div class="comment-meta">
+                                <div class="comment-author-info">
+                                    <span class="comment-author"><?php echo htmlspecialchars(strtoupper($reply['username'])); ?></span>
+                                    <span class="comment-date"><?php echo date('d/m/Y H:i', strtotime($reply['created_at'])); ?></span>
+                                </div>
+                                <div class="comment-floor">#<?php echo $index + 1; ?></div>
+                            </div>
+                            <div class="comment-text">
+                                <?php echo nl2br(htmlspecialchars($reply['content'])); ?>
+                            </div>
                         </div>
                     </div>
                 <?php endforeach; ?>
-            </div>
+            <?php endif; ?>
+        </div>
 
-            <div class="nj-sidebar-card" style="margin-top: 40px; padding: 30px;">
-                <?php if (is_logged_in()): ?>
-                    <h3 class="nj-reply-title"><i class="fas fa-reply"></i> Añadir Respuesta</h3>
-                    <form method="POST">
-                        <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                        
-                        <textarea name="reply_content" class="nj-input" rows="5" required placeholder="Escribe tu respuesta aquí..."></textarea>
-                        <div style="text-align: right; margin-top: 20px;">
-                            <button type="submit" class="nj-btn-primary">Publicar Respuesta</button>
-                        </div>
-                    </form>
-                <?php else: ?>
-                    <div style="text-align: center; padding: 20px 0;">
-                        <p style="color: var(--nj-text-muted); margin-bottom: 20px;">Debes iniciar sesión para unirte a la discusión.</p>
-                        <a href="login.php" class="nj-btn-primary">Iniciar sesión</a>
+        <div class="reply-form-container">
+            <?php if (is_logged_in()): ?>
+                <h3 class="reply-form-title"><i class="fas fa-pen"></i> 留墨 (Añadir Respuesta)</h3>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                    <textarea name="reply_content" class="reply-input" rows="4" required placeholder="写下你的见解..."></textarea>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-submit-comment"><i class="fas fa-stamp"></i> 落印</button>
                     </div>
-                <?php endif; ?>
-            </div>
+                </form>
+            <?php else: ?>
+                <div class="comment-login-prompt">
+                    <p>需推门入阁方可回帖。</p>
+                    <a href="login.php" class="btn-outline">推门入阁 (Iniciar Sesión)</a>
+                </div>
+            <?php endif; ?>
+        </div>
 
-        </main>
     </div>
 </div>
 
 <style>
-/* 继承 & 扩展样式 */
-:root {
-    --nj-bg: #0B0A0A; --nj-module: #161413; --nj-red: #D12323; 
-    --nj-gold: #CCA677; --nj-border: #2D2926; --nj-text-main: #E6E4DF; 
-    --nj-text-muted: #8F98A0; 
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* ================= 浅色水墨风 (White > Gray > Red) ================= */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+
+body {
+    background-color: #F7F7F7 !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
-body { background-color: var(--nj-bg) !important; color: var(--nj-text-main); font-family: var(--font-main); margin: 0; padding: 0; overflow-x: hidden; }
-.nj-static-bg { position: fixed; inset: 0; z-index: -10; background-color: var(--nj-bg); background-image: radial-gradient(circle at 10% 20%, rgba(209, 35, 35, 0.04), transparent 50%), radial-gradient(circle at 90% 80%, rgba(204, 166, 119, 0.03), transparent 50%); background-blend-mode: screen; }
-.nj-static-bg::after { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; }
-.nj-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 100vh; display: flex; flex-direction: column;}
-.nj-header { margin-top: 40px; margin-bottom: 30px; }
-.nj-layout { display: flex; flex: 1; }
-.nj-main { flex: 1; width: 100%; }
-.nj-sidebar-card { background: var(--nj-module); border: 1px solid var(--nj-border); border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);}
-.nj-input { width: 100%; padding: 15px; background: rgba(0,0,0,0.4); border: 1px solid var(--nj-border); border-radius: 6px; color: var(--nj-text-main); font-family: var(--font-main); outline: none; transition: 0.2s; box-sizing: border-box; font-size: 1em;}
-.nj-input:focus { border-color: var(--nj-gold); background: var(--nj-bg);}
-.nj-btn-primary { display: inline-block; text-align: center; background: var(--nj-red); color: #fff; padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; font-weight: bold; transition: background 0.2s; border: none; cursor: pointer;}
-.nj-btn-primary:hover { background: #b81c1c; }
-.nj-btn-secondary { display: inline-block; text-align: center; background: transparent; border: 1px solid var(--nj-border); color: var(--nj-text-main); padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; transition: 0.2s; cursor: pointer;}
-.nj-btn-secondary:hover { background: var(--nj-module-hover); border-color: var(--nj-text-muted); }
-.nj-alert { padding: 15px; background: rgba(209, 35, 35, 0.1); border: 1px solid var(--nj-red); color: var(--nj-text-main); border-radius: 8px; margin-bottom: 20px; font-size: 0.9em;}
-.nj-badge-cat { background: rgba(0,0,0,0.4); border: 1px solid var(--nj-border); padding: 4px 10px; border-radius: 4px; color: var(--nj-gold); font-size: 0.8em; font-weight: bold; letter-spacing: 1px; }
-.nj-post-title { margin: 0 0 15px 0; color: var(--nj-text-main); font-size: 1.8em; line-height: 1.3; }
-.nj-post-info { display: flex; gap: 20px; color: var(--nj-text-muted); font-size: 0.9em; }
-.nj-post-info i { color: var(--nj-gold); margin-right: 5px; }
-.nj-post-content { line-height: 1.8; color: var(--nj-text-main); font-size: 1.05em; margin-top: 25px; }
-.nj-interaction-bar { display: flex; gap: 15px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--nj-border); }
-.nj-interact-btn { background: transparent; border: 1px solid var(--nj-border); color: var(--nj-text-muted); padding: 8px 18px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-size: 0.9em; font-weight: 600; }
-.nj-interact-btn:hover { background: var(--nj-border); color: var(--nj-text-main); }
-.nj-interact-btn.active { border-color: var(--nj-red); color: var(--nj-red); background: rgba(209, 35, 35, 0.05); }
-.nj-interact-btn#bookmark-btn.active { border-color: var(--nj-gold); color: var(--nj-gold); background: rgba(204, 166, 119, 0.05); }
-.nj-replies-divider { margin: 40px 0 20px 0; border-bottom: 1px solid var(--nj-border); padding-bottom: 10px; }
-.nj-replies-divider h3 { color: var(--nj-text-main); font-size: 1.1em; margin: 0; }
-.nj-reply-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px dashed var(--nj-border); padding-bottom: 15px; }
-.nj-reply-user { display: flex; gap: 10px; align-items: center; color: var(--nj-text-muted); font-size: 0.9em; }
-.nj-reply-user i { color: #4A5056; }
-.nj-reply-user strong { color: var(--nj-text-main); font-size: 1.1em; }
-.nj-reply-num { color: var(--nj-border); font-weight: bold; }
-.nj-reply-body { line-height: 1.7; color: var(--nj-text-main); }
-.nj-reply-title { margin: 0 0 20px 0; color: var(--nj-gold); font-size: 1.1em; text-transform: uppercase; }
+
+.light-theme-bg {
+    position: fixed; inset: 0; z-index: -10;
+    background-color: #F7F7F7;
+    background-image: radial-gradient(circle at 50% 0%, #FFFFFF 0%, transparent 70%);
+}
+
+/* 居中容器 */
+.article-container {
+    flex: 1; 
+    width: 100%;
+    max-width: 900px;
+    margin: 40px auto 80px auto; 
+    padding: 0 20px;
+    font-family: 'Noto Serif SC', serif;
+    box-sizing: border-box;
+}
+
+/* 顶部返回导航 */
+.breadcrumb { margin-bottom: 25px; }
+.breadcrumb a { color: #888; text-decoration: none; font-size: 0.95em; font-family: sans-serif; font-weight: bold; transition: color 0.3s; letter-spacing: 1px;}
+.breadcrumb a:hover { color: #9e1b1b; }
+
+/* 通知样式 */
+.alert-box { padding: 15px; border-radius: 4px; margin-bottom: 25px; font-family: sans-serif; font-size: 0.9em; font-weight: bold;}
+.alert-error { background: rgba(158,27,27,0.05); border: 1px solid #9e1b1b; color: #9e1b1b; }
+.alert-success { background: rgba(40,167,69,0.05); border: 1px solid #28a745; color: #28a745; }
+
+/* 纯白主卡片 */
+.article-card {
+    background: #FFFFFF;
+    padding: 50px 60px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.02);
+    position: relative;
+}
+/* 顶部朱砂红细线 */
+.article-card::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+    background: #9e1b1b;
+}
+
+/* 角落作者操作按钮 */
+.author-actions-corner { position: absolute; right: 30px; top: 30px; display: flex; gap: 10px; }
+.btn-corner { display: flex; justify-content: center; align-items: center; width: 32px; height: 32px; border: 1px solid #ddd; color: #888; border-radius: 4px; text-decoration: none; transition: 0.3s; }
+.btn-corner:hover { border-color: #222; color: #222; background: #fafafa; }
+.btn-danger-corner { color: #e2a8a8; border-color: #f5d6d6; }
+.btn-danger-corner:hover { border-color: #9e1b1b; color: #fff; background: #9e1b1b; }
+
+/* ==== 头部信息 ==== */
+.article-header { border-bottom: 1px dashed #E5E5E5; padding-bottom: 25px; margin-bottom: 35px; }
+.header-tags { margin-bottom: 20px; }
+
+.cat-badge { font-family: sans-serif; font-size: 0.75em; letter-spacing: 1px; color: #666; border: 1px solid #ddd; padding: 3px 8px; border-radius: 2px; font-weight: bold; background: #fafafa;}
+
+.article-title { color: #222222; font-size: 2.4em; margin: 0 0 20px 0; font-weight: 900; line-height: 1.3; letter-spacing: 1px; word-break: break-word; }
+
+.article-meta { color: #888888; font-size: 0.9em; display: flex; flex-wrap: wrap; gap: 20px; font-family: sans-serif; }
+.article-meta i { color: #cccccc; margin-right: 5px; }
+
+/* ==== 正文 ==== */
+.wiki-content-body { font-size: 1.15em; line-height: 1.8; color: #333333; min-height: 100px; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; margin-bottom: 50px; }
+
+/* ==== 交互操作栏 ==== */
+.article-actions-bar { display: flex; gap: 15px; padding-top: 25px; border-top: 1px dashed #E5E5E5; }
+.btn-interact { 
+    background: transparent; border: 1px solid #cccccc; color: #666666; 
+    padding: 8px 18px; border-radius: 2px; font-family: sans-serif; font-weight: bold; 
+    font-size: 0.9em; cursor: pointer; transition: all 0.3s; letter-spacing: 1px;
+}
+.btn-interact i { margin-right: 5px; }
+.btn-interact:hover { border-color: #9e1b1b; color: #9e1b1b; background: rgba(158,27,27,0.03); }
+.btn-interact.active { border-color: #9e1b1b; color: #fff; background: #9e1b1b; }
+.btn-interact.active:hover { background: #7a1515; border-color: #7a1515; }
+
+/* ==== 评论区 ==== */
+.comments-section { padding-top: 40px; }
+.comments-title { font-size: 1.5em; color: #222; margin-bottom: 25px; font-weight: 700; letter-spacing: 2px; border-left: 4px solid #9e1b1b; padding-left: 15px; line-height: 1;}
+.comments-title span { font-family: sans-serif; font-size: 0.7em; color: #888; font-weight: normal; }
+
+.comments-empty { text-align: center; padding: 40px 0; color: #aaa; letter-spacing: 2px; border-top: 1px dashed #eee; }
+
+.comments-list { display: flex; flex-direction: column; margin-bottom: 40px; }
+.comment-item { display: flex; gap: 20px; padding: 25px 30px; background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 4px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.01);}
+.comment-avatar-box { flex-shrink: 0; }
+.comment-avatar { width: 45px; height: 45px; border-radius: 50%; border: 1px solid #eee; object-fit: cover; }
+.comment-avatar-placeholder { font-size: 45px; color: #e5e5e5; }
+.comment-content-box { flex-grow: 1; min-width: 0; }
+.comment-meta { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 10px;}
+.comment-author-info { display: flex; align-items: center; gap: 15px; }
+.comment-author { font-weight: bold; color: #222; text-decoration: none; font-size: 0.95em; letter-spacing: 1px;}
+.comment-date { font-family: sans-serif; font-size: 0.8em; color: #999; }
+.comment-floor { font-family: 'Cinzel', serif; font-weight: bold; color: #ccc; }
+.comment-text { color: #444; line-height: 1.6; font-size: 1.05em; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; }
+
+/* ==== 回复表单 ==== */
+.reply-form-container { background: #fff; padding: 30px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.06); }
+.reply-form-title { margin: 0 0 20px 0; color: #222; font-size: 1.1em; letter-spacing: 1px; }
+.reply-input { width: 100%; box-sizing: border-box; padding: 15px; border: 1px solid #dddddd; border-radius: 2px; font-size: 1em; font-family: inherit; resize: vertical; margin-bottom: 15px; background: #fafafa; outline: none; transition: border-color 0.3s;}
+.reply-input:focus { border-color: #9e1b1b; background: #fff; }
+
+.form-actions { text-align: right; }
+.btn-submit-comment { background: #222; color: #fff; border: 1px solid #222; padding: 10px 25px; border-radius: 2px; font-family: 'Noto Serif SC', serif; font-weight: bold; font-size: 1em; letter-spacing: 2px; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px;}
+.btn-submit-comment:hover { background: #9e1b1b; border-color: #9e1b1b; }
+
+.comment-login-prompt { text-align: center; padding: 30px 20px; border: 1px dashed #ccc; background: #fafafa; border-radius: 2px; }
+.comment-login-prompt p { color: #888; margin-bottom: 15px; letter-spacing: 1px; }
+.btn-outline { border: 1px solid #cccccc; color: #555555; background: transparent; padding: 8px 18px; border-radius: 2px; font-family: sans-serif; font-weight: bold; font-size: 0.9em; text-decoration: none; display: inline-block; transition: 0.3s; letter-spacing: 1px;}
+.btn-outline:hover { border-color: #222; color: #222; background: rgba(0,0,0,0.03); }
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .article-container { margin-top: 20px; padding: 0 15px; }
+    .article-card { padding: 30px 20px; }
+    .article-title { font-size: 1.8em; }
+    .article-meta { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .article-actions-bar { flex-direction: column; align-items: stretch; }
+    .btn-interact { width: 100%; justify-content: center; }
+    .comment-item { gap: 15px; padding: 20px 15px; }
+    .comment-avatar, .comment-avatar-placeholder { width: 35px; height: 35px; font-size: 35px; }
+    .author-actions-corner { position: static; margin-bottom: 20px; justify-content: flex-end; }
+}
 </style>
 
 <script>
