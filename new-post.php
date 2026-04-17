@@ -1,5 +1,5 @@
 <?php
-// new-post.php - 创建论坛新主题 (接入 CSRF 防护)
+// new-post.php - 创建论坛新主题 (浅色水墨白灰红·居中版 + CSRF 防护)
 require_once 'config.php';
 require_login();
 
@@ -11,11 +11,11 @@ $formData = [
 ];
 
 $categories = [
-    'general' => 'Discusión General',
-    'guias' => 'Guías y Consejos',
-    'equipos' => 'Búsqueda de Equipo',
-    'dudas' => 'Dudas y Preguntas',
-    'offtopic' => 'Off-Topic'
+    'general' => 'Discusión General (江湖传闻)',
+    'guias' => 'Guías y Consejos (武道心得)',
+    'equipos' => 'Búsqueda de Equipo (寻觅知音)',
+    'dudas' => 'Dudas y Preguntas (疑难杂症)',
+    'offtopic' => 'Off-Topic (客栈闲谈)'
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -55,93 +55,164 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <?php include 'includes/header.php'; ?>
 
-<div class="nj-static-bg"></div>
+<div class="light-theme-bg"></div>
 
-<div class="nj-container">
-    <header class="nj-header">
-        <div class="nj-header-titles">
-            <h1>MARTIAL ARCHIVES</h1>
-            <h2>Iniciar nueva discusión</h2>
-        </div>
-    </header>
-
-    <div class="nj-layout">
-        <main class="nj-main" style="max-width: 900px; margin: 0 auto;">
-            
-            <?php if (!empty($errors)): ?>
-                <div class="nj-alert">
-                    <i class="fas fa-exclamation-triangle"></i> Por favor, corrige los errores del formulario.
-                    <?php if(isset($errors['system'])) echo "<br><strong>".$errors['system']."</strong>"; ?>
-                </div>
-            <?php endif; ?>
-
-            <div class="nj-sidebar-card">
-                <form method="POST">
-                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-
-                    <div style="margin-bottom: 25px;">
-                        <label class="nj-label">Título del tema</label>
-                        <input type="text" name="title" class="nj-input" value="<?php echo htmlspecialchars($formData['title']); ?>" required>
-                        <?php if(isset($errors['title'])) echo "<div style='color:var(--nj-red); font-size:0.85em; margin-top:5px;'>{$errors['title']}</div>"; ?>
-                    </div>
-
-                    <div style="margin-bottom: 25px;">
-                        <label class="nj-label">Categoría</label>
-                        <select name="category" class="nj-input">
-                            <?php foreach ($categories as $val => $label): ?>
-                                <option value="<?php echo $val; ?>" <?php echo $formData['category'] == $val ? 'selected' : ''; ?>>
-                                    <?php echo $label; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div style="margin-bottom: 30px;">
-                        <label class="nj-label">Mensaje</label>
-                        <textarea name="content" class="nj-input" rows="12" required style="resize:vertical;"><?php echo htmlspecialchars($formData['content']); ?></textarea>
-                        <?php if(isset($errors['content'])) echo "<div style='color:var(--nj-red); font-size:0.85em; margin-top:5px;'>{$errors['content']}</div>"; ?>
-                    </div>
-
-                    <div style="display: flex; justify-content: flex-end; gap: 15px;">
-                        <a href="forum.php" class="nj-btn-secondary" style="width: auto;">Cancelar</a>
-                        <button type="submit" class="nj-btn-primary" style="width: auto;"><i class="fas fa-paper-plane"></i> Publicar Tema</button>
-                    </div>
-                </form>
-            </div>
-        </main>
-    </div>
+<div class="edit-container">
     
-    <footer class="nj-footer">
-        <p>NARAKA BLADEPOINT WUXIA ARCHIVES © 2026</p>
-    </footer>
+    <div class="edit-card">
+        <h1 class="edit-title"><i class="fas fa-scroll" style="color: #9e1b1b;"></i> Iniciar Nueva Discusión (张贴布告)</h1>
+        <p class="edit-subtitle">Deja tu mensaje en el muro de la posada para que otros guerreros lo vean.</p>
+
+        <?php if (!empty($errors)): ?>
+            <div class="alert-box alert-error">
+                <i class="fas fa-exclamation-triangle"></i> Por favor, corrige los errores del formulario.
+                <?php if(isset($errors['system'])) echo "<br><span style='margin-top: 5px; display:inline-block;'>".$errors['system']."</span>"; ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+
+            <div class="form-group">
+                <label class="form-label">Título del tema (布告标题) <span style="color:#9e1b1b;">*</span></label>
+                <input type="text" name="title" class="form-control" placeholder="Ej: Busco equipo para subir a Asura..." value="<?php echo htmlspecialchars($formData['title']); ?>" required>
+                <?php if(isset($errors['title'])) echo "<small class='error-text'>{$errors['title']}</small>"; ?>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Categoría (所属分类)</label>
+                <select name="category" class="form-control">
+                    <?php foreach ($categories as $val => $label): ?>
+                        <option value="<?php echo $val; ?>" <?php echo $formData['category'] == $val ? 'selected' : ''; ?>>
+                            <?php echo $label; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Mensaje (布告内容) <span style="color:#9e1b1b;">*</span></label>
+                <textarea name="content" class="form-control" rows="12" required style="resize:vertical; line-height: 1.6;" placeholder="Escribe aquí los detalles de tu tema..."><?php echo htmlspecialchars($formData['content']); ?></textarea>
+                <?php if(isset($errors['content'])) echo "<small class='error-text'>{$errors['content']}</small>"; ?>
+            </div>
+
+            <div class="form-actions">
+                <a href="forum.php" class="btn-cancel">Cancelar (放弃)</a>
+                <button type="submit" class="btn-submit"><i class="fas fa-stamp"></i> Publicar Tema (落印张贴)</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <style>
-:root {
-    --nj-bg: #0B0A0A; --nj-module: #161413; --nj-module-hover: #1E1B19;    
-    --nj-red: #D12323; --nj-gold: #CCA677; --nj-border: #2D2926;          
-    --nj-text-main: #E6E4DF; --nj-text-muted: #8F98A0; 
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* ================= 浅色水墨风 (White > Gray > Red) ================= */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+
+body {
+    background-color: #F7F7F7 !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
-body { background-color: var(--nj-bg) !important; color: var(--nj-text-main); font-family: var(--font-main); margin: 0; padding: 0; overflow-x: hidden; }
-.nj-static-bg { position: fixed; inset: 0; z-index: -10; background-color: var(--nj-bg); background-image: radial-gradient(circle at 10% 20%, rgba(209, 35, 35, 0.04), transparent 50%), radial-gradient(circle at 90% 80%, rgba(204, 166, 119, 0.03), transparent 50%); background-blend-mode: screen; }
-.nj-static-bg::after { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; }
-.nj-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 100vh; display: flex; flex-direction: column;}
-.nj-header { margin-top: 40px; margin-bottom: 30px; border-bottom: 1px solid var(--nj-border); padding-bottom:20px;}
-.nj-header-titles h1 { font-size: 1em; color: var(--nj-text-muted); font-weight: normal; margin: 0 0 5px 0; letter-spacing: 1px;}
-.nj-header-titles h2 { font-size: 1.6em; color: var(--nj-text-main); font-weight: 600; margin: 0;}
-.nj-layout { display: flex; flex: 1; }
-.nj-main { flex: 1; width: 100%; }
-.nj-sidebar-card { background: var(--nj-module); border: 1px solid var(--nj-border); border-radius: 8px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);}
-.nj-label { display: block; margin-bottom: 10px; color: var(--nj-gold); font-size: 0.85em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;}
-.nj-input { width: 100%; padding: 15px; background: rgba(0,0,0,0.4); border: 1px solid var(--nj-border); border-radius: 6px; color: var(--nj-text-main); font-family: var(--font-main); outline: none; transition: 0.2s; box-sizing: border-box; font-size: 1em;}
-.nj-input:focus { border-color: var(--nj-gold); background: var(--nj-bg);}
-.nj-btn-primary { display: inline-block; text-align: center; background: var(--nj-red); color: #fff; padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; font-weight: bold; transition: background 0.2s; border: none; cursor: pointer;}
-.nj-btn-primary:hover { background: #b81c1c; }
-.nj-btn-secondary { display: inline-block; text-align: center; background: transparent; border: 1px solid var(--nj-border); color: var(--nj-text-main); padding: 12px 25px; text-decoration: none; font-size: 0.95em; border-radius: 6px; transition: 0.2s; cursor: pointer;}
-.nj-btn-secondary:hover { background: var(--nj-module-hover); border-color: var(--nj-text-muted); }
-.nj-alert { padding: 15px; background: rgba(209, 35, 35, 0.1); border: 1px solid var(--nj-red); color: var(--nj-text-main); border-radius: 8px; margin-bottom: 20px; font-size: 0.9em;}
-.nj-footer { margin-top: 60px; padding: 40px 0; border-top: 1px solid var(--nj-border); text-align: center; color: var(--nj-text-muted); font-size: 0.8em; letter-spacing: 1px;}
+
+.light-theme-bg {
+    position: fixed; inset: 0; z-index: -10;
+    background-color: #F7F7F7;
+    background-image: radial-gradient(circle at 50% 0%, #FFFFFF 0%, transparent 70%);
+}
+
+/* 居中表单容器 */
+.edit-container {
+    flex: 1; 
+    width: 100%;
+    max-width: 850px; /* 论坛发帖框不需要太宽 */
+    margin: 50px auto 80px auto; 
+    padding: 0 20px;
+    font-family: 'Noto Serif SC', serif;
+    box-sizing: border-box;
+}
+
+/* 纯白主卡片 */
+.edit-card {
+    background: #FFFFFF;
+    padding: 50px 60px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.02);
+    position: relative;
+}
+
+/* 顶部朱砂红细线 */
+.edit-card::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+    background: #9e1b1b;
+}
+
+/* 标题区 */
+.edit-title { color: #222222; font-size: 2.2em; margin: 0 0 10px 0; font-weight: 900; letter-spacing: 1px;}
+.edit-title i { margin-right: 8px; }
+.edit-subtitle { color: #888888; font-size: 0.95em; font-family: sans-serif; margin-bottom: 35px; padding-bottom: 20px; border-bottom: 1px dashed #eee; letter-spacing: 1px;}
+
+/* 错误提示 */
+.alert-box { padding: 15px; border-radius: 2px; margin-bottom: 25px; font-family: sans-serif; font-size: 0.9em; font-weight: bold;}
+.alert-error { background: rgba(158,27,27,0.05); border-left: 4px solid #9e1b1b; color: #9e1b1b; }
+.error-text { color: #9e1b1b; display: block; margin-top: 8px; font-weight: bold; font-size: 0.85em; font-family: sans-serif;}
+
+/* 表单组 */
+.form-group { margin-bottom: 25px; }
+.form-label { display: block; font-weight: bold; color: #444; margin-bottom: 10px; font-size: 0.95em; letter-spacing: 1px; font-family: sans-serif;}
+
+.form-control { 
+    width: 100%; 
+    padding: 15px; 
+    border: 1px solid #dddddd; 
+    border-radius: 2px; 
+    font-size: 1.05em; 
+    font-family: inherit; 
+    background: #fafafa; 
+    transition: all 0.3s;
+    box-sizing: border-box;
+    outline: none;
+    color: #333;
+}
+.form-control:focus { border-color: #9e1b1b; background: #fff; box-shadow: 0 0 0 3px rgba(158,27,27,0.08); }
+.form-control::placeholder { color: #aaa; font-style: italic;}
+
+select.form-control {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%23888888" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 15px top 50%;
+}
+
+/* 操作按钮 */
+.form-actions { display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-top: 40px; padding-top: 25px; border-top: 1px dashed #eee;}
+
+.btn-cancel { 
+    background: transparent; padding: 12px 25px; border: 1px solid #cccccc; color: #666; 
+    border-radius: 2px; font-family: sans-serif; font-weight: bold; font-size: 0.95em; 
+    cursor: pointer; transition: 0.3s; letter-spacing: 1px; text-decoration: none;
+}
+.btn-cancel:hover { border-color: #222; color: #222; background: rgba(0,0,0,0.03); }
+
+.btn-submit { 
+    background: #222; color: #fff; border: 1px solid #222; padding: 12px 30px; 
+    border-radius: 2px; font-family: 'Noto Serif SC', serif; font-weight: bold; 
+    font-size: 1.05em; letter-spacing: 2px; cursor: pointer; transition: 0.3s; 
+    display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-submit:hover { background: #9e1b1b; border-color: #9e1b1b; }
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .edit-container { margin-top: 20px; padding: 0 15px; }
+    .edit-card { padding: 30px 20px; }
+    .edit-title { font-size: 1.8em; }
+    .form-actions { flex-direction: column-reverse; align-items: stretch; }
+    .btn-cancel, .btn-submit { width: 100%; justify-content: center; text-align: center; box-sizing: border-box;}
+}
 </style>
 
 <?php include 'includes/footer.php'; ?>
