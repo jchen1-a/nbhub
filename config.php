@@ -1,48 +1,32 @@
 <?php
-// config.php - InfinityFree专用版
+// config.php - InfinityFree专用版 (融合 P3 通知系统引擎)
 session_start();
 header('Content-Type: text/html; charset=utf-8');
 date_default_timezone_set('Asia/Shanghai');
 
-// 错误报告（开发环境开启）
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // ==================== 数据库配置 ====================
-// 使用你的实际信息（不要修改左侧，只确认右侧值正确）
-define('DB_HOST', 'sql211.infinityfree.com');  // 你的主机
-define('DB_USER', 'if0_41075202');             // 你的用户名
-define('DB_PASSWORD', 'NBhub10086');       // 你登录InfinityFree的密码
-define('DB_NAME', 'if0_41075202_Nbbase');      // 你的数据库名
+define('DB_HOST', 'sql211.infinityfree.com');
+define('DB_USER', 'if0_41075202');
+define('DB_PASSWORD', 'NBhub10086');
+define('DB_NAME', 'if0_41075202_Nbbase');
 define('DB_PORT', '3306');
 
 // ==================== 数据库连接函数 ====================
 function db_connect() {
     try {
-        // MySQL连接字符串
         $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-        
         $pdo = new PDO($dsn, DB_USER, DB_PASSWORD, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,      // 抛出异常
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, // 返回关联数组
-            PDO::ATTR_EMULATE_PREPARES => false,              // 禁用模拟预处理
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
             PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
         ]);
-        
         return $pdo;
-        
     } catch (PDOException $e) {
-        // 详细的错误信息
-        $error_msg = "数据库连接失败！<br><br>";
-        $error_msg .= "<strong>错误详情：</strong> " . $e->getMessage() . "<br><br>";
-        $error_msg .= "<strong>检查以下信息：</strong><br>";
-        $error_msg .= "1. 主机：'sql211.infinityfree.com'<br>";
-        $error_msg .= "2. 用户名：'if0_41075202'<br>";
-        $error_msg .= "3. 数据库名：'if0_41075202_Nbbase'<br>";
-        $error_msg .= "4. 密码：是否正确（vPanel登录密码）<br>";
-        $error_msg .= "5. 网络：能否访问 sql211.infinityfree.com<br>";
-        
-        die($error_msg);
+        die("Error de conexión a la base de datos.");
     }
 }
 
@@ -78,78 +62,14 @@ function sanitize($input) {
     return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
 }
 
-function clean_input($data) {
-    $data = trim($data);
-    $data = stripslashes($data);
-    $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
-    return $data;
-}
-
-// ==================== 实用函数 ====================
-function redirect($url, $delay = 0) {
-    if ($delay > 0) {
-        header("Refresh: $delay; URL=$url");
-    } else {
-        header("Location: $url");
-    }
-    exit();
-}
-
-function json_response($success, $message, $data = []) {
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => $success,
-        'message' => $message,
-        'data' => $data
-    ], JSON_UNESCAPED_UNICODE);
-    exit();
-}
-
-// ==================== 数据库助手函数 ====================
-function table_exists($table_name) {
-    try {
-        $pdo = db_connect();
-        $stmt = $pdo->query("SHOW TABLES LIKE '$table_name'");
-        return $stmt->rowCount() > 0;
-    } catch (Exception $e) {
-        return false;
-    }
-}
-
-function get_db_stats() {
-    try {
-        $pdo = db_connect();
-        $stats = [];
-        
-        // 检查用户表
-        if (table_exists('users')) {
-            $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
-            $stats['users'] = $stmt->fetch()['count'];
-        }
-        
-        // 检查文章表
-        if (table_exists('articles')) {
-            $stmt = $pdo->query("SELECT COUNT(*) as count FROM articles");
-            $stats['articles'] = $stmt->fetch()['count'];
-        }
-        
-        return $stats;
-    } catch (Exception $e) {
-        return ['error' => $e->getMessage()];
-    }
-}
-
 // ==================== 会话安全 ====================
-// 防止会话固定攻击
 if (!isset($_SESSION['created'])) {
     $_SESSION['created'] = time();
 } elseif (time() - $_SESSION['created'] > 1800) {
-    // 30分钟后重新生成会话ID
     session_regenerate_id(true);
     $_SESSION['created'] = time();
 }
 
-// 设置CSRF令牌（如果不存在）
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -162,42 +82,67 @@ function verify_csrf_token($token) {
     return hash_equals($_SESSION['csrf_token'], $token);
 }
 
+// ==================== P3 通知系统引擎 (飞鸽传书) ====================
+function send_notification($user_id, $sender_id, $type, $reference_id) {
+    // 防止自己给自己发通知（比如自己赞了自己）
+    if ($user_id == $sender_id) return; 
+    
+    try {
+        $pdo = db_connect();
+        // 避免重复通知（比如取消赞又重新赞，短时间内不再触发）
+        $check = $pdo->prepare("SELECT id FROM notifications WHERE user_id = ? AND sender_id = ? AND type = ? AND reference_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+        $check->execute([$user_id, $sender_id, $type, $reference_id]);
+        
+        if (!$check->fetch()) {
+            $stmt = $pdo->prepare("INSERT INTO notifications (user_id, sender_id, type, reference_id) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$user_id, $sender_id, $type, $reference_id]);
+        }
+    } catch (Exception $e) {
+        // 静默失败，不影响主流程
+    }
+}
+
+function get_unread_notifications_count($user_id) {
+    if (!$user_id) return 0;
+    try {
+        $pdo = db_connect();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
 // ==================== 文件上传配置 ====================
-define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
+define('MAX_AVATAR_SIZE', 2 * 1024 * 1024);  
+define('MAX_VIDEO_SIZE', 20 * 1024 * 1024);  
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+define('ALLOWED_VIDEO_TYPES', ['video/mp4']);
 define('UPLOAD_DIR', __DIR__ . '/uploads/');
 
-// 确保上传目录存在
-if (!file_exists(UPLOAD_DIR) && is_writable(dirname(UPLOAD_DIR))) {
-    mkdir(UPLOAD_DIR, 0755, true);
-}
+if (!file_exists(UPLOAD_DIR)) mkdir(UPLOAD_DIR, 0755, true);
+if (!file_exists(UPLOAD_DIR . 'avatars/')) mkdir(UPLOAD_DIR . 'avatars/', 0755, true);
+if (!file_exists(UPLOAD_DIR . 'videos/')) mkdir(UPLOAD_DIR . 'videos/', 0755, true);
 
 // ==================== 网站配置 ====================
 define('SITE_NAME', 'Naraka Hub');
 define('SITE_URL', 'https://' . $_SERVER['HTTP_HOST']);
 define('ADMIN_EMAIL', 'admin@narakahub.com');
-define('ITEMS_PER_PAGE', 10);
 
-// 时区设置（根据你的位置调整）
-date_default_timezone_set('Europe/Madrid'); // 西班牙时间
-
-// ==================== 开发模式检测 ====================
+// ==================== 开发与 SMTP 配置 ====================
 define('IS_DEV', $_SERVER['HTTP_HOST'] === 'localhost' || strpos($_SERVER['HTTP_HOST'], 'test') !== false);
-
 if (IS_DEV) {
-    // 开发环境设置
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
 } else {
-    // 生产环境设置
     error_reporting(E_ERROR | E_WARNING | E_PARSE);
     ini_set('display_errors', 0);
     ini_set('log_errors', 1);
 }
-// ==================== SMTP 邮件配置 ====================
+
 define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', 587); // TLS 端口
-define('SMTP_USER', 'chji351327@gmail.com'); // 【修改这里】填写你发信的 Gmail 邮箱
-define('SMTP_PASS', 'incenhbqtsviqbug');    // 【修改这里】填写你的应用专用密码 (注意：必须删掉所有空格)
-define('SITE_EMAIL', 'no-reply@narakahub.com'); // 显示的发件人邮箱
-?>
+define('SMTP_PORT', 587); 
+define('SMTP_USER', 'chji351327@gmail.com');
+define('SMTP_PASS', 'incenhbqtsviqbug'); // 请在真实环境中注意保密
+define('SITE_EMAIL', 'no-reply@narakahub.com');
